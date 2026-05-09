@@ -1,0 +1,59 @@
+name: Audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: brew audit + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Homebrew
+        id: setup
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Find formulas
+        id: formulas
+        run: |
+          set -euo pipefail
+          formulas="$(find Formula -name '*.rb' -print 2>/dev/null || true)"
+          if [ -z "$formulas" ]; then
+            echo "No formulas in Formula/ yet — skipping audit."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "formulas<<EOF"
+              echo "$formulas"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: brew audit --strict --new
+        if: steps.formulas.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          while IFS= read -r f; do
+            echo "::group::audit $f"
+            brew audit --strict --new "$f"
+            echo "::endgroup::"
+          done <<< "${{ steps.formulas.outputs.formulas }}"
+
+      - name: brew install + brew test
+        if: steps.formulas.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          while IFS= read -r f; do
+            name="$(basename "$f" .rb)"
+            echo "::group::install + test $name"
+            brew install --verbose "$f"
+            brew test "$name"
+            echo "::endgroup::"
+          done <<< "${{ steps.formulas.outputs.formulas }}"
