@@ -5,21 +5,21 @@
 class GoUdap < Formula
   desc "Squeezebox UDAP configuration tool"
   homepage "https://github.com/yo61/go-udap"
-  version "1.0.2-rc.1"
+  version "1.1.0"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/yo61/go-udap/releases/download/v1.0.2-rc.1/go-udap_1.0.2-rc.1_macos_x86_64.tar.gz"
-      sha256 "ae63fbc948fc641de78910a26e64a2afa35c130741aa828fdb253c220fa685dd"
+      url "https://github.com/yo61/go-udap/releases/download/v1.1.0/go-udap_1.1.0_macos_x86_64.tar.gz"
+      sha256 "443263d4159a495c47d3022315cb5993990447408f1d218d458977efc6f3c81d"
 
       define_method(:install) do
         bin.install "go-udap"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/yo61/go-udap/releases/download/v1.0.2-rc.1/go-udap_1.0.2-rc.1_macos_arm64.tar.gz"
-      sha256 "5140d871e92299fbc33f94ac0ff1f5667e234dd4b3ea569d5372655ed9240a37"
+      url "https://github.com/yo61/go-udap/releases/download/v1.1.0/go-udap_1.1.0_macos_arm64.tar.gz"
+      sha256 "751e77a38aef24dc7e42cc5ca266ecbee54bc49bd4329f21f39d6e2803c55d2c"
 
       define_method(:install) do
         bin.install "go-udap"
@@ -29,15 +29,15 @@ class GoUdap < Formula
 
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
-      url "https://github.com/yo61/go-udap/releases/download/v1.0.2-rc.1/go-udap_1.0.2-rc.1_linux_x86_64.tar.gz"
-      sha256 "5f7923726de9e9145118554a88f467ad470923d8ae62787fa089bd9194c3cea6"
+      url "https://github.com/yo61/go-udap/releases/download/v1.1.0/go-udap_1.1.0_linux_x86_64.tar.gz"
+      sha256 "9a2061a8a43e14affeed848bae29c92bfba0ebfaeeb43121e8255fb778d2774b"
       define_method(:install) do
         bin.install "go-udap"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/yo61/go-udap/releases/download/v1.0.2-rc.1/go-udap_1.0.2-rc.1_linux_arm64.tar.gz"
-      sha256 "723244dec24f6e41794a8f44ed2cde1e1b1a5ae0ed8de67f3a9309fb77fd216f"
+      url "https://github.com/yo61/go-udap/releases/download/v1.1.0/go-udap_1.1.0_linux_arm64.tar.gz"
+      sha256 "d045ebe1cdaa5618d738f12987e9ae072e2e23506b19ba5166c7d1b436c6e3fb"
       define_method(:install) do
         bin.install "go-udap"
       end
