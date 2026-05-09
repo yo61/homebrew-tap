@@ -16,8 +16,15 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Set up Homebrew
-        id: setup
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Tap this checkout as yo61/tap
+        run: |
+          set -euo pipefail
+          tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
+          mkdir -p "$(dirname "$tap_dir")"
+          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
+          brew tap | grep -F yo61/homebrew-tap
 
       - name: Find formulas
         id: formulas
@@ -29,9 +36,10 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
+            names="$(echo "$formulas" | xargs -n1 basename | sed 's/\.rb$//')"
             {
-              echo "formulas<<EOF"
-              echo "$formulas"
+              echo "names<<EOF"
+              echo "$names"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
           fi
@@ -40,20 +48,19 @@ jobs:
         if: steps.formulas.outputs.skip != 'true'
         run: |
           set -euo pipefail
-          while IFS= read -r f; do
-            echo "::group::audit $f"
-            brew audit --strict --new "$f"
+          while IFS= read -r name; do
+            echo "::group::audit yo61/tap/$name"
+            brew audit --strict --new "yo61/tap/$name"
             echo "::endgroup::"
-          done <<< "${{ steps.formulas.outputs.formulas }}"
+          done <<< "${{ steps.formulas.outputs.names }}"
 
       - name: brew install + brew test
         if: steps.formulas.outputs.skip != 'true'
         run: |
           set -euo pipefail
-          while IFS= read -r f; do
-            name="$(basename "$f" .rb)"
-            echo "::group::install + test $name"
-            brew install --verbose "$f"
-            brew test "$name"
+          while IFS= read -r name; do
+            echo "::group::install + test yo61/tap/$name"
+            brew install --verbose "yo61/tap/$name"
+            brew test "yo61/tap/$name"
             echo "::endgroup::"
-          done <<< "${{ steps.formulas.outputs.formulas }}"
+          done <<< "${{ steps.formulas.outputs.names }}"
