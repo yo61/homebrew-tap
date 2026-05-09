@@ -29,8 +29,8 @@ jobs:
           # real directory (e.g. via `brew tap <name> <path>`, which clones).
           rm -rf "$tap_dir"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
-          # Sanity: brew should now list the tap (filesystem discovery).
-          brew tap | grep -Fx yo61/homebrew-tap
+          # `brew tap` may not list a symlinked tap; the audit/install/test
+          # steps below will surface any actual discovery failure.
 
       - name: Find formulas
         id: formulas
