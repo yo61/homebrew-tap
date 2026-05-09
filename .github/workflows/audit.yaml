@@ -22,6 +22,9 @@ jobs:
         run: |
           set -euo pipefail
           tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
+          # setup-homebrew@main pre-creates an empty placeholder dir; replace
+          # it with a symlink to the actual checkout so brew sees our formulas.
+          rm -rf "$tap_dir"
           mkdir -p "$(dirname "$tap_dir")"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
           brew tap | grep -F yo61/homebrew-tap
