@@ -22,10 +22,15 @@ jobs:
         run: |
           set -euxo pipefail
           tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
+          # Homebrew/actions/setup-homebrew@main pre-creates an empty
+          # placeholder dir at $tap_dir; replace it with a symlink to this
+          # checkout. The post-step cleanup uses plain `rm` (not -rf), which
+          # only works on a symlink — so we must not turn $tap_dir into a
+          # real directory (e.g. via `brew tap <name> <path>`, which clones).
           rm -rf "$tap_dir"
-          # `brew tap` with an explicit path treats this checkout as the tap.
-          brew tap yo61/tap "$GITHUB_WORKSPACE"
-          brew tap
+          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
+          # Sanity: brew should now list the tap (filesystem discovery).
+          brew tap | grep -Fx yo61/homebrew-tap
 
       - name: Find formulas
         id: formulas
