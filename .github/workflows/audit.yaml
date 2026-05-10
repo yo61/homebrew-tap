@@ -32,13 +32,13 @@ jobs:
           # `brew tap` may not list a symlinked tap; the audit/install/test
           # steps below will surface any actual discovery failure.
 
-      - name: Find formulas
+      - name: Find formulas and casks
         id: formulas
         run: |
           set -euo pipefail
-          formulas="$(find Formula -name '*.rb' -print 2>/dev/null || true)"
+          formulas="$(find Casks Formula -name '*.rb' -print 2>/dev/null || true)"
           if [ -z "$formulas" ]; then
-            echo "No formulas in Formula/ yet — skipping audit."
+            echo "No formula(s) and cask(s) in Casks/ or Formula/ yet — skipping audit."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
