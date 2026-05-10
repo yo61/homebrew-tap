@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   audit:
-    name: brew audit + test
+    name: brew audit + install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -29,44 +29,52 @@ jobs:
           # real directory (e.g. via `brew tap <name> <path>`, which clones).
           rm -rf "$tap_dir"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
-          # `brew tap` may not list a symlinked tap; the audit/install/test
-          # steps below will surface any actual discovery failure.
 
       - name: Find formulas and casks
-        id: formulas
+        id: artifacts
         run: |
           set -euo pipefail
-          formulas="$(find Casks Formula -name '*.rb' -print 2>/dev/null || true)"
-          if [ -z "$formulas" ]; then
-            echo "No formula(s) and cask(s) in Casks/ or Formula/ yet — skipping audit."
+          files="$(find Casks Formula -name '*.rb' -print 2>/dev/null || true)"
+          if [ -z "$files" ]; then
+            echo "No formulas or casks yet — skipping audit."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            names="$(echo "$formulas" | xargs -n1 basename | sed 's/\.rb$//')"
             {
-              echo "names<<EOF"
-              echo "$names"
+              echo "files<<EOF"
+              echo "$files"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
           fi
 
       - name: brew audit --strict --new
-        if: steps.formulas.outputs.skip != 'true'
+        if: steps.artifacts.outputs.skip != 'true'
         run: |
           set -euo pipefail
-          while IFS= read -r name; do
+          while IFS= read -r path; do
+            name="$(basename "$path" .rb)"
             echo "::group::audit yo61/tap/$name"
             brew audit --strict --new "yo61/tap/$name"
             echo "::endgroup::"
-          done <<< "${{ steps.formulas.outputs.names }}"
+          done <<< "${{ steps.artifacts.outputs.files }}"
 
-      - name: brew install + brew test
-        if: steps.formulas.outputs.skip != 'true'
+      - name: brew install (+ brew test for formulas)
+        if: steps.artifacts.outputs.skip != 'true'
         run: |
           set -euo pipefail
-          while IFS= read -r name; do
-            echo "::group::install + test yo61/tap/$name"
+          while IFS= read -r path; do
+            name="$(basename "$path" .rb)"
+            kind="$(dirname "$path")"   # "Casks" or "Formula"
+            echo "::group::install $kind/$name"
             brew install --verbose "yo61/tap/$name"
-            brew test "yo61/tap/$name"
             echo "::endgroup::"
-          done <<< "${{ steps.formulas.outputs.names }}"
+            # `brew test` only applies to formulas. For casks, the cask's
+            # `brew audit --strict --new` already validates the metadata,
+            # and the install above proves the artifact is fetchable and
+            # placeable. There's no equivalent inline test block for casks.
+            if [ "$kind" = "Formula" ]; then
+              echo "::group::test Formula/$name"
+              brew test "yo61/tap/$name"
+              echo "::endgroup::"
+            fi
+          done <<< "${{ steps.artifacts.outputs.files }}"
