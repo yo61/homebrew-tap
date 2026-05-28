@@ -7,6 +7,12 @@ class Jobhound < Formula
   sha256 "d016201a6692a39695ca5cc596502048aa8faff6ceb60cfa1fdceadec7fe496a"
   license "Apache-2.0"
 
+  # Build-time only: `cryptography` (pulled in by mcp -> pyjwt[crypto]) ships
+  # an sdist whose build backend (maturin) requires a Rust toolchain. Brew's
+  # Language::Python::Virtualenv builds every resource from sdist, so without
+  # this the install fails compiling cryptography's wheel.
+  depends_on "rust" => :build
+
   depends_on "python@3.13"
 
   resource "annotated-types" do
@@ -227,14 +233,10 @@ class Jobhound < Formula
   def install
     virtualenv_install_with_resources
 
-    # Completions ship as a static script per shell, generated on demand
-    # via `jh completion <shell>`. The wheel ships the bundled scripts
-    # used by `jh completion install`; we just pipe each into the
-    # appropriate Homebrew completion location so brew users get
-    # shell completion without running an extra command.
-    generate_completions_from_executable(bin/"jh", "completion",
-                                         shells:                 [:bash, :zsh, :fish],
-                                         shell_parameter_format: :none)
+    # `jh completion <shell>` takes the shell as a positional arg.
+    # Omitting `shell_parameter_format:` (the default `nil`) passes the
+    # bare shell name positionally — exactly what jh expects.
+    generate_completions_from_executable(bin/"jh", "completion")
   end
 
   test do
