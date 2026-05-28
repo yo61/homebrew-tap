@@ -158,37 +158,53 @@ jobs:
             -f ref="refs/heads/$BRANCH" \
             -f sha="$head_sha" || true
 
-          # Write the base64 to a file and pass via `-f key=@file`, not
-          # an inline shell variable. The formula is small today (~10KB)
-          # but the resource block grows with each new dep; using a file
-          # avoids the kernel's MAX_ARG_STRLEN limit (128KB per arg on
-          # x86_64) ever becoming the failure mode here.
           base64 -w0 < Formula/jobhound.rb > /tmp/formula.b64
           headline="chore(jobhound): bump to $VERSION"
 
-          # createCommitOnBranch produces a commit signed by GitHub on the
-          # github-actions[bot]'s behalf, satisfying the required_signatures
-          # ruleset on main. GraphQL has no string interpolation, so compose
-          # the headline shell-side and pass it as its own variable.
-          # shellcheck disable=SC2016 # GraphQL variables, not shell expansions.
-          gh api graphql \
-            -f repo="$GH_REPO" \
-            -f branch="$BRANCH" \
-            -f sha="$head_sha" \
-            -f content=@/tmp/formula.b64 \
-            -f headline="$headline" \
-            -f query='
-              mutation($repo: String!, $branch: String!, $sha: GitObjectID!, $content: Base64String!, $headline: String!) {
-                createCommitOnBranch(input: {
-                  branch: { repositoryNameWithOwner: $repo, branchName: $branch },
-                  message: { headline: $headline },
-                  expectedHeadOid: $sha,
-                  fileChanges: { additions: [{ path: "Formula/jobhound.rb", contents: $content }] }
-                }) {
-                  commit { url }
-                }
+          # Build the full GraphQL request (query + variables) as JSON via
+          # jq, with the base64 content streamed in via --rawfile, and
+          # submit via `gh api graphql --input`. The formula is small
+          # today (~10KB), but two pitfalls would otherwise sit in wait:
+          #   1. Inline `-f content=$content_b64` would exceed the
+          #      kernel's MAX_ARG_STRLEN (128KB per arg) once the formula
+          #      crossed ~95KB (E2BIG / exit 126).
+          #   2. `-f content=@/tmp/file` does NOT work — verified
+          #      empirically that gh's @filename expansion does not
+          #      apply to graphql variables; gh sends the literal path
+          #      as the value and the server rejects "Invalid Base64".
+          #
+          # createCommitOnBranch produces a commit signed by GitHub on
+          # the github-actions[bot]'s behalf, satisfying the
+          # required_signatures ruleset on main.
+          # shellcheck disable=SC2016 # jq references, not shell expansions.
+          query='mutation($repo: String!, $branch: String!, $sha: GitObjectID!, $content: Base64String!, $headline: String!) {
+            createCommitOnBranch(input: {
+              branch: { repositoryNameWithOwner: $repo, branchName: $branch },
+              message: { headline: $headline },
+              expectedHeadOid: $sha,
+              fileChanges: { additions: [{ path: "Formula/jobhound.rb", contents: $content }] }
+            }) {
+              commit { url }
+            }
+          }'
+          jq -n \
+            --arg query "$query" \
+            --arg repo "$GH_REPO" \
+            --arg branch "$BRANCH" \
+            --arg sha "$head_sha" \
+            --arg headline "$headline" \
+            --rawfile content /tmp/formula.b64 \
+            '{
+              query: $query,
+              variables: {
+                repo: $repo,
+                branch: $branch,
+                sha: $sha,
+                headline: $headline,
+                content: ($content | rtrimstr("\n"))
               }
-            '
+            }' > /tmp/graphql.json
+          gh api graphql --input /tmp/graphql.json
 
           if ! gh pr view "$BRANCH" >/dev/null 2>&1; then
             gh pr create \
