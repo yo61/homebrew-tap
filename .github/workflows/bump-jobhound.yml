@@ -1,0 +1,196 @@
+name: Bump jobhound formula
+
+on:
+  repository_dispatch:
+    types: [bump-jobhound]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Jobhound version to bump to (e.g. 0.10.0 or v0.10.0)"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  bump:
+    name: Bump jobhound
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Validate version payload
+        id: version
+        env:
+          DISPATCH_VERSION: ${{ github.event.client_payload.version }}
+          WORKFLOW_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          raw="${DISPATCH_VERSION:-${WORKFLOW_VERSION:-}}"
+          if [[ -z "$raw" ]]; then
+            echo "::error::no version supplied (client_payload.version or workflow_dispatch.inputs.version)"
+            exit 1
+          fi
+          # Strip a leading 'v', then enforce PEP-440-ish semver+pre/post forms.
+          v="${raw#v}"
+          if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][a-zA-Z0-9._-]+)?$ ]]; then
+            echo "::error::Invalid version format: $raw"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "branch=bump/jobhound-$v" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $v"
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Fetch new sdist metadata
+        id: sdist
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          json=$(curl -fsSL "https://pypi.org/pypi/jobhound/${VERSION}/json")
+          url=$(jq -r '.urls[] | select(.packagetype == "sdist") | .url' <<<"$json")
+          sha=$(jq -r '.urls[] | select(.packagetype == "sdist") | .digests.sha256' <<<"$json")
+          if [[ -z "$url" || -z "$sha" || "$url" == "null" || "$sha" == "null" ]]; then
+            echo "::error::no sdist found on PyPI for jobhound==$VERSION"
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
+        with:
+          python-version: "3.13"
+          enable-cache: false
+
+      - name: Generate resource blocks
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          uv venv /tmp/venv --python 3.13
+          uv pip install --python /tmp/venv/bin/python \
+            "homebrew-pypi-poet" "setuptools<80" "jobhound[mcp]==${VERSION}"
+          # poet -r walks runtime deps; --also brings in the mcp extra's tree.
+          /tmp/venv/bin/poet -r jobhound --also mcp > /tmp/resources-raw.rb
+          # Strip the (incorrect) jobhound self-resource — it's the head
+          # `url`/`sha256`, not a resource. Then normalize Ruby-style names
+          # (underscores -> hyphens) to match the formula's convention.
+          awk '
+            /^  resource "jobhound" do$/ { skip=1; next }
+            skip && /^  end$/ { skip=0; next }
+            skip { next }
+            { print }
+          ' /tmp/resources-raw.rb \
+            | sed -e 's/resource "pydantic_core"/resource "pydantic-core"/' \
+                  -e 's/resource "Pygments"/resource "pygments"/' \
+                  -e 's/resource "PyJWT"/resource "pyjwt"/' \
+            > /tmp/resources.rb
+          echo "Generated $(grep -c '^  resource ' /tmp/resources.rb) resource blocks"
+
+      - name: Patch Formula/jobhound.rb
+        env:
+          NEW_URL: ${{ steps.sdist.outputs.url }}
+          NEW_SHA: ${{ steps.sdist.outputs.sha }}
+        run: |
+          set -euo pipefail
+          python3 << 'PY'
+          import os, re
+          new_url = os.environ["NEW_URL"]
+          new_sha = os.environ["NEW_SHA"]
+          resources = open("/tmp/resources.rb").read().rstrip() + "\n"
+
+          formula = open("Formula/jobhound.rb").read()
+          formula, n = re.subn(r'^(  url )"[^"]+"', f'\\1"{new_url}"', formula, count=1, flags=re.M)
+          assert n == 1, "couldn't find head url line"
+          formula, n = re.subn(r'^(  sha256 )"[^"]+"', f'\\1"{new_sha}"', formula, count=1, flags=re.M)
+          assert n == 1, "couldn't find head sha256 line"
+          # Replace everything from the first `resource "..." do` up to
+          # `def install` with the regenerated resource set.
+          pattern = re.compile(
+              r'(  depends_on "python@3\.13"\n\n)(.*?)(\n  def install\b)',
+              re.DOTALL,
+          )
+          formula, n = pattern.subn(f'\\1{resources}\\3', formula, count=1)
+          assert n == 1, "couldn't find resource block region"
+          open("Formula/jobhound.rb", "w").write(formula)
+          PY
+          echo "::group::patched formula diff (head)"
+          head -20 Formula/jobhound.rb
+          echo "::endgroup::"
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-28
+
+      - name: Tap this checkout as yo61/tap
+        run: |
+          set -euxo pipefail
+          tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
+          rm -rf "$tap_dir"
+          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
+
+      - name: brew audit --strict --new
+        run: brew audit --strict --new yo61/tap/jobhound
+
+      - name: brew install + brew test
+        run: |
+          brew install --verbose yo61/tap/jobhound
+          brew test yo61/tap/jobhound
+
+      - name: Open PR with signed commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          BRANCH: ${{ steps.version.outputs.branch }}
+        run: |
+          set -euo pipefail
+          head_sha=$(git rev-parse origin/main)
+
+          # Create the branch via API (no git push, so no GITHUB_TOKEN-based
+          # push auth needed). Idempotent: if the branch already exists
+          # from a prior failed run, fall through.
+          gh api -X POST "repos/$GH_REPO/git/refs" \
+            -f ref="refs/heads/$BRANCH" \
+            -f sha="$head_sha" || true
+
+          content_b64=$(base64 -w0 < Formula/jobhound.rb)
+          headline="chore(jobhound): bump to $VERSION"
+
+          # createCommitOnBranch produces a commit signed by GitHub on the
+          # github-actions[bot]'s behalf, satisfying the required_signatures
+          # ruleset on main. GraphQL has no string interpolation, so compose
+          # the headline shell-side and pass it as its own variable.
+          # shellcheck disable=SC2016 # GraphQL variables, not shell expansions.
+          gh api graphql \
+            -f repo="$GH_REPO" \
+            -f branch="$BRANCH" \
+            -f sha="$head_sha" \
+            -f content="$content_b64" \
+            -f headline="$headline" \
+            -f query='
+              mutation($repo: String!, $branch: String!, $sha: GitObjectID!, $content: Base64String!, $headline: String!) {
+                createCommitOnBranch(input: {
+                  branch: { repositoryNameWithOwner: $repo, branchName: $branch },
+                  message: { headline: $headline },
+                  expectedHeadOid: $sha,
+                  fileChanges: { additions: [{ path: "Formula/jobhound.rb", contents: $content }] }
+                }) {
+                  commit { url }
+                }
+              }
+            '
+
+          if ! gh pr view "$BRANCH" >/dev/null 2>&1; then
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "chore(jobhound): bump to $VERSION" \
+              --body "Automated bump triggered by jobhound's release workflow. Validated locally: brew audit --strict --new + brew install + brew test all pass against this commit."
+          else
+            echo "PR for $BRANCH already exists; skipping create."
+          fi
