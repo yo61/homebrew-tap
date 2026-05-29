@@ -29,10 +29,10 @@ brew install yo61/tap/go-udap    # cask
 
 ## How content lands here
 
-Different upstream mechanisms update different artifacts in this tap — none should be hand-edited:
+Each artifact is updated by its own upstream mechanism — there's no tap-wide rule, and none of these files should be hand-edited:
 
-- **Casks** are generated and pushed by [GoReleaser](https://goreleaser.com/) from the upstream project's release workflow (currently `go-udap`).
-- **Formulae** are updated by per-formula GitHub Actions workflows in this repo, triggered via `repository_dispatch` from the upstream project's release workflow (currently `jobhound`, via `.github/workflows/bump-jobhound.yml`).
+- `go-udap` is generated and pushed by [GoReleaser](https://goreleaser.com/) from `yo61/go-udap`'s release workflow.
+- `jobhound` is updated by `.github/workflows/bump-jobhound.yml` in this repo, triggered via `repository_dispatch` from `yo61/jobhound`'s release workflow.
 
 Every push and PR runs `brew audit --strict --new` and `brew install` (+ `brew test` for formulae) against changed artifacts via `.github/workflows/audit.yaml`.
 
