@@ -13,11 +13,13 @@ jobs:
     name: brew audit + install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           # Need history to diff against the PR base / previous main tip in
           # "Find changed formulas and casks" below.
           fetch-depth: 0
+          # No git writes happen in this job; don't leave a token on disk.
+          persist-credentials: false
 
       # Run the diff before installing Homebrew so PRs that don't touch a
       # Casks/*.rb or Formula/*.rb file skip the ~20s `Set up Homebrew`
@@ -73,7 +75,7 @@ jobs:
 
       - name: Set up Homebrew
         if: steps.artifacts.outputs.skip != 'true'
-        uses: Homebrew/actions/setup-homebrew@main
+        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-28
 
       - name: Tap this checkout as yo61/tap
         if: steps.artifacts.outputs.skip != 'true'
