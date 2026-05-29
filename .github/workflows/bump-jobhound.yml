@@ -146,6 +146,17 @@ jobs:
           echo "::group::patched formula diff (head)"
           head -20 Formula/jobhound.rb
           echo "::endgroup::"
+          # Snapshot the patched formula outside the workspace. Later brew
+          # commands (audit / install / test) trigger a `brew update`
+          # preamble that does `git fetch && git reset --hard origin/HEAD`
+          # against every tap — including the symlinked yo61/tap, which is
+          # $GITHUB_WORKSPACE. That silently reverts this step's changes
+          # before the "Open PR with signed commit" step reads the file,
+          # producing an empty commit and a no-op bump PR (observed in
+          # yo61/homebrew-tap PRs #6 and run #26642692309). Reading the
+          # commit content from /tmp instead of the workspace keeps the
+          # patch authoritative regardless of what brew does.
+          cp Formula/jobhound.rb /tmp/patched-formula.rb
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-28
@@ -182,7 +193,15 @@ jobs:
             -f ref="refs/heads/$BRANCH" \
             -f sha="$head_sha" || true
 
-          base64 -w0 < Formula/jobhound.rb > /tmp/formula.b64
+          # Read from the snapshot written by "Patch Formula/jobhound.rb",
+          # not from $GITHUB_WORKSPACE — brew auto-update may have reset
+          # the workspace back to origin/main between the patch step and
+          # this one. See the comment on the `cp` in that step.
+          test -s /tmp/patched-formula.rb || {
+            echo "::error::patched formula snapshot missing or empty"
+            exit 1
+          }
+          base64 -w0 < /tmp/patched-formula.rb > /tmp/formula.b64
           headline="chore(jobhound): bump to $VERSION"
 
           # Build the full GraphQL request (query + variables) as JSON via
