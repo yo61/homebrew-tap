@@ -3,8 +3,8 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/01/e4/a64f5bc352ce516d2017433073c146e4d2444d23ec40d4eaeef6b8a5106a/jobhound-0.10.0.tar.gz"
-  sha256 "d016201a6692a39695ca5cc596502048aa8faff6ceb60cfa1fdceadec7fe496a"
+  url "https://files.pythonhosted.org/packages/b5/ab/22523643765a98c3b66e03fff265e6201aa4afb7d29a48dbef971171594d/jobhound-0.10.2.tar.gz"
+  sha256 "5115ac4ff9e908f7a812d837c73d7422ba6fd8981768e9aff183e40855fd56a8"
   license "Apache-2.0"
 
   # Build-time only: `cryptography` (pulled in by mcp -> pyjwt[crypto]) ships
@@ -89,6 +89,7 @@ class Jobhound < Formula
     url "https://files.pythonhosted.org/packages/b9/28/99c51f664567218d824af024c0251650fb27e4ca066df188dab0769c5b91/idna-3.17.tar.gz"
     sha256 "5eb0cb53bc467c12eadcf6de83163ad8527cec9416f44b9b61b19caedad2b87f"
   end
+
 
   resource "jsonschema" do
     url "https://files.pythonhosted.org/packages/b3/fc/e067678238fa451312d4c62bf6e6cf5ec56375422aee02f9cb5f909b3047/jsonschema-4.26.0.tar.gz"
