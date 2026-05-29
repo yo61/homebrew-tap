@@ -104,16 +104,20 @@ jobs:
           # Strip:
           #   - the (incorrect) jobhound self-resource — it's the head
           #     `url`/`sha256`, not a resource
-          #   - cffi / cryptography / pycparser — provided by the brewed
-          #     `cryptography` formula via `depends_on` + `pypi_packages
-          #     exclude_packages` in Formula/jobhound.rb. Generating
-          #     resources for them would still install them into the
-          #     venv (overriding the brewed copies) and reintroduce the
-          #     rust toolchain build dep.
+          #   - cffi / cryptography / pycparser — provided by brewed
+          #     `cryptography` formula
+          #   - pydantic / pydantic-core — provided by brewed `pydantic`
+          #   - rpds-py — provided by brewed `rpds-py`
+          # The brewed formulae are wired via `depends_on` +
+          # `pypi_packages exclude_packages` in Formula/jobhound.rb.
+          # Generating resources for these would still install them into
+          # the venv (overriding the brewed copies) and pull a Rust
+          # toolchain back in as a build dep (cryptography, pydantic-core,
+          # and rpds-py all use maturin).
           # Then normalize Ruby-style names (underscores -> hyphens) to
           # match the formula's convention.
           awk '
-            /^  resource "(jobhound|cffi|cryptography|pycparser)" do$/ { skip=1; next }
+            /^  resource "(jobhound|cffi|cryptography|pycparser|pydantic|pydantic_core|rpds_py)" do$/ { skip=1; next }
             skip && /^  end$/ { skip=0; next }
             skip { next }
             { print }

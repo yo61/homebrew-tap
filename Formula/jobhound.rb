@@ -8,13 +8,19 @@ class Jobhound < Formula
   license "Apache-2.0"
 
   depends_on "cryptography" => :no_linkage
+  depends_on "pydantic" => :no_linkage
   depends_on "python@3.13"
+  depends_on "rpds-py" => :no_linkage
 
-  # Use brewed cryptography (and its bundled cffi/pycparser) rather than
-  # building them from sdist into the venv. Avoids pulling in a Rust
-  # toolchain to compile cryptography's maturin-based sdist on every
-  # install.
-  pypi_packages exclude_packages: %w[cffi cryptography pycparser]
+  # Use brewed Python C-extension packages rather than building them from
+  # sdist into the venv. Three of the runtime deps need a Rust toolchain
+  # to compile their sdist:
+  #   - cryptography (maturin) — pulled in by mcp -> pyjwt[crypto]
+  #   - pydantic-core (maturin) — pulled in by pydantic 2.x
+  #   - rpds-py (maturin) — pulled in by jsonschema
+  # Brew has bottled formulae for all three. cryptography also bundles
+  # cffi + pycparser in its keg; pydantic also bundles pydantic-core.
+  pypi_packages exclude_packages: %w[cffi cryptography pycparser pydantic pydantic-core rpds-py]
 
   resource "annotated-types" do
     url "https://files.pythonhosted.org/packages/ee/67/531ea369ba64dcff5ec9c3402f9f51bf748cec26dde048a2f973a4eea7f5/annotated_types-0.7.0.tar.gz"
@@ -112,16 +118,6 @@ class Jobhound < Formula
     sha256 "28cde192929c8e7321de85de1ddbe736f1375148b02f2e17edd840042b1be855"
   end
 
-  resource "pydantic" do
-    url "https://files.pythonhosted.org/packages/18/a5/b60d21ac674192f8ab0ba4e9fd860690f9b4a6e51ca5df118733b487d8d6/pydantic-2.13.4.tar.gz"
-    sha256 "c40756b57adaa8b1efeeced5c196f3f3b7c435f90e84ea7f443901bec8099ef6"
-  end
-
-  resource "pydantic-core" do
-    url "https://files.pythonhosted.org/packages/9d/56/921726b776ace8d8f5db44c4ef961006580d91dc52b803c489fafd1aa249/pydantic_core-2.46.4.tar.gz"
-    sha256 "62f875393d7f270851f20523dd2e29f082bcc82292d66db2b64ea71f64b6e1c1"
-  end
-
   resource "pydantic-settings" do
     url "https://files.pythonhosted.org/packages/07/60/1d1e59c9c90d54591469ada7d268251f71c24bdb765f1a8a832cee8c6653/pydantic_settings-2.14.1.tar.gz"
     sha256 "e874d3bec7e787b0c9958277956ed9b4dd5de6a80e162188fdaff7c5e26fd5fa"
@@ -165,11 +161,6 @@ class Jobhound < Formula
   resource "rich-rst" do
     url "https://files.pythonhosted.org/packages/bc/6d/a506aaa4a9eaa945ed8ab2b7347859f53593864289853c5d6d62b77246e0/rich_rst-1.3.2.tar.gz"
     sha256 "a1196fdddf1e364b02ec68a05e8ff8f6914fee10fbca2e6b6735f166bb0da8d4"
-  end
-
-  resource "rpds-py" do
-    url "https://files.pythonhosted.org/packages/2e/43/25a8dcd3feedd735039a8f0b5b7e3b118232b5eae288c4fd9ab200d41094/rpds_py-2026.5.1.tar.gz"
-    sha256 "07b24fea40541e28570e5b795a4a38fbdcd12550c06bd0748005ecc8116ca256"
   end
 
   resource "sse-starlette" do
