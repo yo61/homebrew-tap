@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Need history to diff against the PR base / previous main tip in
+          # "Find changed formulas and casks" below.
+          fetch-depth: 0
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
@@ -30,13 +34,44 @@ jobs:
           rm -rf "$tap_dir"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
 
-      - name: Find formulas and casks
+      - name: Find changed formulas and casks
         id: artifacts
+        env:
+          # Both SHA values come from GitHub-computed event payload (not
+          # user-supplied), but bind via env: + shell expansion anyway to
+          # match the workflow-hardening pattern used by bump-jobhound.yml.
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          files="$(find Casks Formula -name '*.rb' -print 2>/dev/null || true)"
+
+          # Determine the base commit to diff against.
+          case "$EVENT_NAME" in
+            pull_request) base="$PR_BASE_SHA" ;;
+            push)         base="$PUSH_BEFORE_SHA" ;;
+            *)            base="" ;;
+          esac
+
+          # If we can't resolve the base (first push to a branch, force-push
+          # without fetch-depth, unknown event), fall back to auditing
+          # everything — better noisy than silently skipping work.
+          if [ -z "$base" ] || ! git rev-parse --verify --quiet "$base^{commit}" >/dev/null; then
+            echo "Base commit not resolvable ('$base'); auditing all artifacts."
+            files="$(find Casks Formula -name '*.rb' -print 2>/dev/null || true)"
+          else
+            # Diff only files under Casks/ or Formula/ ending in .rb.
+            # `git diff --diff-filter=d` excludes deletions so we don't try
+            # to install a formula whose source has been removed.
+            files="$(git diff --name-only --diff-filter=d "$base" HEAD -- 'Casks/*.rb' 'Formula/*.rb' || true)"
+            if [ -n "$files" ]; then
+              echo "Changed since $base:"
+              echo "$files" | sed 's/^/  /'
+            fi
+          fi
+
           if [ -z "$files" ]; then
-            echo "No formulas or casks yet — skipping audit."
+            echo "No formula or cask changes — skipping audit/install/test."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
