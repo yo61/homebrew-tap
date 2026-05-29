@@ -19,21 +19,10 @@ jobs:
           # "Find changed formulas and casks" below.
           fetch-depth: 0
 
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@main
-
-      - name: Tap this checkout as yo61/tap
-        run: |
-          set -euxo pipefail
-          tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
-          # Homebrew/actions/setup-homebrew@main pre-creates an empty
-          # placeholder dir at $tap_dir; replace it with a symlink to this
-          # checkout. The post-step cleanup uses plain `rm` (not -rf), which
-          # only works on a symlink — so we must not turn $tap_dir into a
-          # real directory (e.g. via `brew tap <name> <path>`, which clones).
-          rm -rf "$tap_dir"
-          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
-
+      # Run the diff before installing Homebrew so PRs that don't touch a
+      # Casks/*.rb or Formula/*.rb file skip the ~20s `Set up Homebrew`
+      # bootstrap entirely. Only `Find changed` and `actions/checkout`
+      # run on the fast-skip path.
       - name: Find changed formulas and casks
         id: artifacts
         env:
@@ -81,6 +70,23 @@ jobs:
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Set up Homebrew
+        if: steps.artifacts.outputs.skip != 'true'
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Tap this checkout as yo61/tap
+        if: steps.artifacts.outputs.skip != 'true'
+        run: |
+          set -euxo pipefail
+          tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
+          # Homebrew/actions/setup-homebrew@main pre-creates an empty
+          # placeholder dir at $tap_dir; replace it with a symlink to this
+          # checkout. The post-step cleanup uses plain `rm` (not -rf), which
+          # only works on a symlink — so we must not turn $tap_dir into a
+          # real directory (e.g. via `brew tap <name> <path>`, which clones).
+          rm -rf "$tap_dir"
+          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
 
       - name: brew audit --strict --new
         if: steps.artifacts.outputs.skip != 'true'
