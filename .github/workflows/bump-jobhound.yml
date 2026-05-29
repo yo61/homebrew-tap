@@ -67,6 +67,30 @@ jobs:
           python-version: "3.13"
           enable-cache: false
 
+      - name: Wait for PyPI simple index to publish new version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # PyPI's JSON API (/pypi/jobhound/<v>/json) publishes synchronously
+          # with twine upload — the previous "Fetch new sdist metadata" step
+          # proved the release exists. But uv pip resolves against the
+          # /simple/ index, which is served via Fastly and can lag by tens of
+          # seconds on first read. Without this poll, dispatches that fire
+          # immediately after a release race the CDN and fail with
+          # "No solution found ... no version of jobhound[mcp]==<v>".
+          for i in $(seq 1 30); do
+            if curl -sfH 'Cache-Control: no-cache' \
+                 "https://pypi.org/simple/jobhound/" \
+                 | grep -q "jobhound-${VERSION}\."; then
+              echo "jobhound-${VERSION} visible on simple index (attempt $i)"
+              exit 0
+            fi
+            sleep 4
+          done
+          echo "::error::jobhound-${VERSION} not visible on PyPI simple index after 120s"
+          exit 1
+
       - name: Generate resource blocks
         env:
           VERSION: ${{ steps.version.outputs.version }}
