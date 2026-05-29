@@ -7,13 +7,14 @@ class Jobhound < Formula
   sha256 "5115ac4ff9e908f7a812d837c73d7422ba6fd8981768e9aff183e40855fd56a8"
   license "Apache-2.0"
 
-  # Build-time only: `cryptography` (pulled in by mcp -> pyjwt[crypto]) ships
-  # an sdist whose build backend (maturin) requires a Rust toolchain. Brew's
-  # Language::Python::Virtualenv builds every resource from sdist, so without
-  # this the install fails compiling cryptography's wheel.
-  depends_on "rust" => :build
-
+  depends_on "cryptography" => :no_linkage
   depends_on "python@3.13"
+
+  # Use brewed cryptography (and its bundled cffi/pycparser) rather than
+  # building them from sdist into the venv. Avoids pulling in a Rust
+  # toolchain to compile cryptography's maturin-based sdist on every
+  # install.
+  pypi_packages exclude_packages: %w[cffi cryptography pycparser]
 
   resource "annotated-types" do
     url "https://files.pythonhosted.org/packages/ee/67/531ea369ba64dcff5ec9c3402f9f51bf748cec26dde048a2f973a4eea7f5/annotated_types-0.7.0.tar.gz"
@@ -35,19 +36,9 @@ class Jobhound < Formula
     sha256 "69dea482ab64caa7b9f6aba1c6bf48bb6a5448d1c0f1b17ab42ad8c763a5344d"
   end
 
-  resource "cffi" do
-    url "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz"
-    sha256 "44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529"
-  end
-
   resource "click" do
     url "https://files.pythonhosted.org/packages/9b/98/518d8e5081007684232226f475082b30087d0f585e8457db087298259f49/click-8.4.1.tar.gz"
     sha256 "918b5633eddf6b41c32d4f454bf0de810065c74e3f7dbf8ee5452f8be88d3e96"
-  end
-
-  resource "cryptography" do
-    url "https://files.pythonhosted.org/packages/9f/a9/db8f313fdcd85d767d4973515e1db101f9c71f95fced83233de224673757/cryptography-48.0.0.tar.gz"
-    sha256 "5c3932f4436d1cccb036cb0eaef46e6e2db91035166f1ad6505c3c9d5a635920"
   end
 
   resource "cyclopts" do
@@ -119,11 +110,6 @@ class Jobhound < Formula
   resource "prompt-toolkit" do
     url "https://files.pythonhosted.org/packages/a1/96/06e01a7b38dce6fe1db213e061a4602dd6032a8a97ef6c1a862537732421/prompt_toolkit-3.0.52.tar.gz"
     sha256 "28cde192929c8e7321de85de1ddbe736f1375148b02f2e17edd840042b1be855"
-  end
-
-  resource "pycparser" do
-    url "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz"
-    sha256 "600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29"
   end
 
   resource "pydantic" do
