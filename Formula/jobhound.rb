@@ -22,6 +22,16 @@ class Jobhound < Formula
   # cffi + pycparser in its keg; pydantic also bundles pydantic-core.
   pypi_packages exclude_packages: %w[cffi cryptography pycparser pydantic pydantic-core rpds-py]
 
+  # Build-time only: jobhound's pyproject.toml declares
+  # `build-backend = "uv_build"`. Brew's `--no-binary :all:` policy forces
+  # every package (including build backends) to be built from sdist, so
+  # pip resolves uv_build from sdist, which transitively requires
+  # maturin, which requires Rust. The brewed runtime deps above skip
+  # the Rust-heavy *runtime* sdists; this dep covers the formula's own
+  # build chain. Removable if jobhound ever switches to a pure-Python
+  # build backend (e.g. hatchling).
+  depends_on "rust" => :build
+
   resource "annotated-types" do
     url "https://files.pythonhosted.org/packages/ee/67/531ea369ba64dcff5ec9c3402f9f51bf748cec26dde048a2f973a4eea7f5/annotated_types-0.7.0.tar.gz"
     sha256 "aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89"
