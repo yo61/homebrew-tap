@@ -3,8 +3,8 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/b5/ab/22523643765a98c3b66e03fff265e6201aa4afb7d29a48dbef971171594d/jobhound-0.10.2.tar.gz"
-  sha256 "5115ac4ff9e908f7a812d837c73d7422ba6fd8981768e9aff183e40855fd56a8"
+  url "https://files.pythonhosted.org/packages/e9/59/7c6199ca1b23955d7b1309b25b5991083a34af2d3788b676719acb96828e/jobhound-0.10.3.tar.gz"
+  sha256 "14485b47850a7a4fb518cc688da5ac102b1a4d0a59df75c93aeb22ff1659c740"
   license "Apache-2.0"
 
   # Build-time only: `cryptography` (pulled in by mcp -> pyjwt[crypto]) ships
@@ -107,8 +107,8 @@ class Jobhound < Formula
   end
 
   resource "mcp" do
-    url "https://files.pythonhosted.org/packages/38/83/d1efe7c2980d8a3afa476f4e3d42d53dd54c0ab94c27bee5d755b45c8b73/mcp-1.27.1.tar.gz"
-    sha256 "0f47e1820f8f8f941466b39749eb1d1839a04caddca2bc60e9d46e8a99914924"
+    url "https://files.pythonhosted.org/packages/27/3c/347cf965d313f5d41764e7d46bea6ffe7d9ef13b983cc429b0340962a082/mcp-1.27.2.tar.gz"
+    sha256 "8e02db104096d1c25b28e64bde29a5c32b31bc241710213e12fd4d84985bdfef"
   end
 
   resource "mdurl" do
