@@ -116,9 +116,25 @@ jobs:
           # and rpds-py all use maturin).
           # Then normalize Ruby-style names (underscores -> hyphens) to
           # match the formula's convention.
+          # Match both the underscore (pydantic_core, rpds_py) and hyphen
+          # (pydantic-core, rpds-py) emit forms. poet's output style has
+          # varied across versions; covering both is cheap and avoids the
+          # silent miss observed in yo61/homebrew-tap PR #17 where the
+          # rpds-py block leaked into the formula because the awk pattern
+          # only matched the underscore form.
+          #
+          # After matching `  end`, swallow the trailing blank line so two
+          # adjacent surviving blocks don't end up separated by 2 blank
+          # lines. The patcher in the next step uses `\n\n?` to mark the
+          # end of each resource block; 2 consecutive blank lines stop the
+          # regex mid-region and leave a partial replacement (also
+          # observed in PR #17).
           awk '
-            /^  resource "(jobhound|cffi|cryptography|pycparser|pydantic|pydantic_core|rpds_py)" do$/ { skip=1; next }
-            skip && /^  end$/ { skip=0; next }
+            /^  resource "(jobhound|cffi|cryptography|pycparser|pydantic|pydantic_core|pydantic-core|rpds_py|rpds-py)" do$/ {
+              skip = 1; next
+            }
+            skip && /^  end$/ { skip = 2; next }
+            skip == 2 && /^$/ { skip = 0; next }
             skip { next }
             { print }
           ' /tmp/resources-raw.rb \
@@ -183,11 +199,30 @@ jobs:
           rm -rf "$tap_dir"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
 
+      # Restore the patched formula before brew commands run. `brew audit`,
+      # `brew install`, and `brew test` each fire an implicit `brew update`
+      # preamble that does `git fetch && git reset --hard origin/HEAD`
+      # against every tap — including the symlinked yo61/tap, which IS the
+      # workspace. Without restoring, brew validates the pre-patch formula
+      # (whatever's on origin/main) and any bug introduced by this run goes
+      # undetected until after the PR is opened.
+      #
+      # Belt-and-braces: `HOMEBREW_NO_AUTO_UPDATE=1` blocks the implicit
+      # update; the cp ensures correctness even if brew updates anyway.
       - name: brew audit --strict --new
-        run: brew audit --strict --new yo61/tap/jobhound
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          set -euxo pipefail
+          cp /tmp/patched-formula.rb Formula/jobhound.rb
+          brew audit --strict --new yo61/tap/jobhound
 
       - name: brew install + brew test
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
+          set -euxo pipefail
+          cp /tmp/patched-formula.rb Formula/jobhound.rb
           brew install --verbose yo61/tap/jobhound
           brew test yo61/tap/jobhound
 
