@@ -250,7 +250,9 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-pull-requests: write
-          permission-contents: read
+          # contents:write so `gh pr merge --delete-branch` can delete the
+          # head ref after the auto-merge fires.
+          permission-contents: write
 
       - name: Open PR with signed commit
         env:
@@ -338,3 +340,16 @@ jobs:
           else
             echo "PR for $BRANCH already exists; skipping create."
           fi
+
+          # The PR is a paperwork checkpoint, not a review gate: every
+          # validation that audit.yaml runs on the PR (brew audit + install
+          # + test) has already passed locally in earlier steps of this
+          # workflow. `--auto` queues the merge to fire as soon as the
+          # required `pull_request` checks pass; if no required checks are
+          # set up, the merge happens immediately. Either way, no human
+          # click required.
+          GH_TOKEN="$APP_TOKEN" gh pr merge "$BRANCH" \
+            --repo "$GH_REPO" \
+            --squash \
+            --delete-branch \
+            --auto
