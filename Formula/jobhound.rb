@@ -3,8 +3,8 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/d3/33/230aafc74e7613f5c19a9c1c5159c544d8a669c06953d848015e9cf88122/jobhound-0.11.0.tar.gz"
-  sha256 "e1ff9f7cd180c2e8d9925e4376ba31bc73e966561c2d7018ea488ec5b18e7004"
+  url "https://files.pythonhosted.org/packages/d7/9e/0c72e0f6c25712e2690fcce0a93e2f97c1d4b42d31a493070fb9cdaf98b0/jobhound-0.12.0.tar.gz"
+  sha256 "cc42b7eda6e87287e7309777847d017c251816c821561cac0246407b35c0d9c6"
   license "Apache-2.0"
 
   depends_on "cryptography" => :no_linkage
@@ -198,15 +198,14 @@ class Jobhound < Formula
   end
 
   resource "wcwidth" do
-    url "https://files.pythonhosted.org/packages/af/44/c833e6b746ffb654e9abacf7ad6c2480a9c8c42e9637c1ae849964fb4dde/wcwidth-0.8.0.tar.gz"
-    sha256 "68a882ff6d14e3d14e0cae590b96a0551be64ce4905408112a8254434a1bdf69"
+    url "https://files.pythonhosted.org/packages/49/b4/51fe890511f0f242d07cb1ebe6a5b6db417262b9d2568b460347c57d95cc/wcwidth-0.8.1.tar.gz"
+    sha256 "faf5b4a5366a72dc49cad48cdf21f52bdf63bdda995178e483ba247ff79089b9"
   end
 
   resource "xdg-base-dirs" do
     url "https://files.pythonhosted.org/packages/bf/d0/bbe05a15347538aaf9fa5b51ac3b97075dfb834931fcb77d81fbdb69e8f6/xdg_base_dirs-6.0.2.tar.gz"
     sha256 "950504e14d27cf3c9cb37744680a43bf0ac42efefc4ef4acf98dc736cab2bced"
   end
-
   def install
     virtualenv_install_with_resources
 
