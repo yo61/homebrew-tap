@@ -217,6 +217,13 @@ jobs:
           cp /tmp/patched-formula.rb Formula/jobhound.rb
           brew audit --strict --new yo61/tap/jobhound
 
+      # Homebrew now requires bubblewrap on Linux to run its install sandbox
+      # (fails with "Bubblewrap is required to use the Linux sandbox but was
+      # not found" otherwise). GitHub's ubuntu-latest runner doesn't ship
+      # with it, so install it before any `brew install` invocation.
+      - name: Install bubblewrap for Homebrew's Linux sandbox
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+
       - name: brew install + brew test
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
