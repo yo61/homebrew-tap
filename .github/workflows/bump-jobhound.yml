@@ -235,9 +235,27 @@ jobs:
           brew install --verbose yo61/tap/jobhound
           brew test yo61/tap/jobhound
 
+      # Mint an App token for `gh pr create`. PRs opened by GITHUB_TOKEN
+      # (i.e. authored by github-actions[bot]) don't trigger downstream
+      # `pull_request` workflow runs, so audit.yaml never fires against
+      # the bump PR. Using the App token authors the PR as the App,
+      # which DOES trigger downstream workflows. The commit itself stays
+      # signed by github-actions[bot] via createCommitOnBranch (below) to
+      # satisfy the required_signatures ruleset on main.
+      - id: create_pr_token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
+        with:
+          client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+          permission-contents: read
+
       - name: Open PR with signed commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_TOKEN: ${{ steps.create_pr_token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.version.outputs.version }}
           BRANCH: ${{ steps.version.outputs.branch }}
@@ -309,7 +327,10 @@ jobs:
           gh api graphql --input /tmp/graphql.json
 
           if ! gh pr view "$BRANCH" >/dev/null 2>&1; then
-            gh pr create \
+            # Use the App token so the PR is authored by the App, which
+            # lets `pull_request`-triggered workflows (e.g. audit.yaml)
+            # fire against the bump PR.
+            GH_TOKEN="$APP_TOKEN" gh pr create \
               --base main \
               --head "$BRANCH" \
               --title "chore(jobhound): bump to $VERSION" \
