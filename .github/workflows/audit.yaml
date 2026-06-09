@@ -101,17 +101,14 @@ jobs:
             echo "::endgroup::"
           done <<< "${{ steps.artifacts.outputs.files }}"
 
-      # Homebrew requires bubblewrap on Linux for the install sandbox; the
-      # ubuntu-latest runner doesn't ship with it. Without this step the
-      # next `brew install` step fails with "Bubblewrap is required to use
-      # the Linux sandbox but was not found." See bump-jobhound.yml for
-      # the same fix applied there.
-      - name: Install bubblewrap for Homebrew's Linux sandbox
-        if: steps.artifacts.outputs.skip != 'true'
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap
-
+      # Disable Homebrew's Linux install sandbox. The sandbox requires
+      # rootless bubblewrap + unprivileged user namespaces; Ubuntu 24.04
+      # (ubuntu-latest) blocks the namespaces by default via AppArmor.
+      # See bump-jobhound.yml for the same fix applied there.
       - name: brew install (+ brew test for formulas)
         if: steps.artifacts.outputs.skip != 'true'
+        env:
+          HOMEBREW_NO_SANDBOX_LINUX: "1"
         run: |
           set -euo pipefail
           while IFS= read -r path; do

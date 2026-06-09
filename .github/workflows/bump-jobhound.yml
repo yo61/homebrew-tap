@@ -217,16 +217,18 @@ jobs:
           cp /tmp/patched-formula.rb Formula/jobhound.rb
           brew audit --strict --new yo61/tap/jobhound
 
-      # Homebrew now requires bubblewrap on Linux to run its install sandbox
-      # (fails with "Bubblewrap is required to use the Linux sandbox but was
-      # not found" otherwise). GitHub's ubuntu-latest runner doesn't ship
-      # with it, so install it before any `brew install` invocation.
-      - name: Install bubblewrap for Homebrew's Linux sandbox
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap
-
+      # Disable Homebrew's Linux install sandbox. The sandbox requires
+      # rootless bubblewrap + unprivileged user namespaces; Ubuntu 24.04
+      # (ubuntu-latest) blocks the namespaces by default via AppArmor,
+      # so even installing bubblewrap isn't enough. The sandbox protects
+      # the host from build-script tampering — on a one-shot ephemeral
+      # CI runner installing a formula whose contents are validated by
+      # `brew audit --strict` and whose tarball comes from PyPI, that
+      # protection is theatre.
       - name: brew install + brew test
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_SANDBOX_LINUX: "1"
         run: |
           set -euxo pipefail
           cp /tmp/patched-formula.rb Formula/jobhound.rb
