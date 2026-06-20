@@ -1,7 +1,7 @@
 class Swamp < Formula
   desc "AI Native Automation CLI"
   homepage "https://github.com/swamp-club/swamp"
-  version "20260619.091244.0-sha.43c65b72"
+  version "20260620.010743.0-sha.f0896067"
   license "AGPL-3.0-only"
 
   livecheck do
@@ -15,22 +15,22 @@ class Swamp < Formula
   on_macos do
     on_arm do
       url "https://github.com/swamp-club/swamp/releases/download/v#{version}/swamp-darwin-aarch64"
-      sha256 "dbe041ce5fbe6387da795eb3cf7bf5e5ff5228038f1cef3cb0a62418e3a2dce1"
+      sha256 "f3cdaef68228bc4bc90537871356c568c68e7fc2fe324706d3b865d0662d6f9e"
     end
     on_intel do
       url "https://github.com/swamp-club/swamp/releases/download/v#{version}/swamp-darwin-x86_64"
-      sha256 "71d4cfe22f4ce216b434bbec7cf061524063187b5c839a44c7ab3b014fa40c8e"
+      sha256 "6a2dac86f1b6a0c3388a9a93861aa08e0735d646280989a676a3830942dd575a"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/swamp-club/swamp/releases/download/v#{version}/swamp-linux-aarch64"
-      sha256 "eb29b7fa500ce8aed8126c9a434d52d25107512f781aba96e5a837ed719760e9"
+      sha256 "d72d4280528d6440f6cdd505b2ac95f8c5b856b3d19c85fd8bcb532606e07247"
     end
     on_intel do
       url "https://github.com/swamp-club/swamp/releases/download/v#{version}/swamp-linux-x86_64"
-      sha256 "f912cbd0a9db86280ad856589b177e565e3c380fb6d6c89a3537fceb242d936c"
+      sha256 "68264dcb9dca8191fb7585e85f1e14cd30b9ff317d714fd3f655780716951eb8"
     end
   end
 
