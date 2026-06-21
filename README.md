@@ -20,6 +20,7 @@ brew install yo61/tap/go-udap    # cask
 | Formula | Description |
 | --- | --- |
 | [`jobhound`](https://github.com/yo61/jobhound) | Action-based CLI for tracking a job hunt |
+| [`swamp`](https://github.com/swamp-club/swamp) | AI Native Automation CLI |
 
 ## Available casks
 
@@ -33,6 +34,7 @@ Each artifact is updated by its own upstream mechanism — there's no tap-wide r
 
 - `go-udap` is generated and pushed by [GoReleaser](https://goreleaser.com/) from `yo61/go-udap`'s release workflow.
 - `jobhound` is updated by `.github/workflows/bump-jobhound.yml` in this repo, triggered via `repository_dispatch` from `yo61/jobhound`'s release workflow.
+- `swamp` is updated by `.github/workflows/bump-swamp.yml` in this repo, which runs daily on a schedule and bumps to the latest GitHub release.
 
 Every push and PR runs `brew audit --strict --new` and `brew install` (+ `brew test` for formulae) against changed artifacts via `.github/workflows/audit.yaml`.
 
