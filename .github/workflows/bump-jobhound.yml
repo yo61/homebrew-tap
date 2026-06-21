@@ -344,12 +344,21 @@ jobs:
           # The PR is a paperwork checkpoint, not a review gate: every
           # validation that audit.yaml runs on the PR (brew audit + install
           # + test) has already passed locally in earlier steps of this
-          # workflow. `--auto` queues the merge to fire as soon as the
-          # required `pull_request` checks pass; if no required checks are
-          # set up, the merge happens immediately. Either way, no human
-          # click required.
+          # workflow. Try `--auto` first: if a required check is still
+          # pending it queues the squash-merge to fire once that check
+          # passes. But `main` has no required status checks, so a freshly
+          # opened PR is immediately mergeable and GitHub rejects
+          # enablePullRequestAutoMerge with "Pull request is in clean
+          # status". Fall back to an immediate squash-merge in that case —
+          # validation already ran in this job, so there's nothing to wait
+          # for. (Without the fallback this raced: it only succeeded when
+          # audit.yaml's check happened to still be pending at this point.)
           GH_TOKEN="$APP_TOKEN" gh pr merge "$BRANCH" \
             --repo "$GH_REPO" \
             --squash \
             --delete-branch \
-            --auto
+            --auto \
+            || GH_TOKEN="$APP_TOKEN" gh pr merge "$BRANCH" \
+                 --repo "$GH_REPO" \
+                 --squash \
+                 --delete-branch
