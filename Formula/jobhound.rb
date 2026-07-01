@@ -3,8 +3,8 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/76/ce/da8c5da0096cc6d3eca247d35f053959e626cbb14159bc527bdca95695c6/jobhound-0.14.2.tar.gz"
-  sha256 "5fad3862041f8da38ca08de570f58344609f4449f0e3c470bb0d880e9c69615b"
+  url "https://files.pythonhosted.org/packages/a7/35/36351fa45105aad040eb3df2390d168f07f4c290df13558afe93084cfcf7/jobhound-0.15.0.tar.gz"
+  sha256 "a889205bd14f8bfee24ed4e23da3badc41030d533dfdc0f8ba5a9b8389ac1b87"
   license "Apache-2.0"
 
   depends_on "cryptography" => :no_linkage
@@ -28,8 +28,8 @@ class Jobhound < Formula
   end
 
   resource "anyio" do
-    url "https://files.pythonhosted.org/packages/1c/b5/001890774a9552aff22502b8da382593109ce0c95314abaebbb116567545/anyio-4.14.0.tar.gz"
-    sha256 "b47c1f9ccf73e67021df785332508f99379c68fa7d0684e8e3492cb1d4b23f89"
+    url "https://files.pythonhosted.org/packages/3b/72/5562aabb8dd7181e8e860622a38bea08d17842b99ecd4c91f84ac95251b0/anyio-4.14.1.tar.gz"
+    sha256 "8d648a3544c1a700e3ff78615cd679e4c5c3f149904287e73687b2596963629e"
   end
 
   resource "attrs" do
@@ -43,8 +43,8 @@ class Jobhound < Formula
   end
 
   resource "click" do
-    url "https://files.pythonhosted.org/packages/9b/98/518d8e5081007684232226f475082b30087d0f585e8457db087298259f49/click-8.4.1.tar.gz"
-    sha256 "918b5633eddf6b41c32d4f454bf0de810065c74e3f7dbf8ee5452f8be88d3e96"
+    url "https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz"
+    sha256 "9a6cea6e60b17ebe0a44c5cc636d94f09bd66142c1cd7d8b4cd731c4917a15f6"
   end
 
   resource "cyclopts" do
@@ -103,8 +103,8 @@ class Jobhound < Formula
   end
 
   resource "mcp" do
-    url "https://files.pythonhosted.org/packages/c1/ee/94c6c50ffc5b5cf4737052275d11b57367f32d1a8516e31dcd60591b3916/mcp-1.28.0.tar.gz"
-    sha256 "559d3f9943674cafbe5744c5d3794f3237e8b47f9bbc58e20c0fad680d8487c2"
+    url "https://files.pythonhosted.org/packages/6e/77/9450b8f251a13affb6281997d0523c4615f8a8b35d0b21ff30db3a5aac9d/mcp-1.28.1.tar.gz"
+    sha256 "d51e36a5f5644faea4f85ea649bfffa6bc6c26770d42798ad6a3de3d2ba69683"
   end
 
   resource "mdurl" do
@@ -188,8 +188,8 @@ class Jobhound < Formula
   end
 
   resource "tzlocal" do
-    url "https://files.pythonhosted.org/packages/48/55/15e2340963d2bfedcc6042da3911438fd336f8ae96b65bdbe3a29766da0c/tzlocal-5.4.3.tar.gz"
-    sha256 "3a8c9bc18cf47e1dcde252ea0e6a72a6cde320a400b6ac6db1f1f8cccd553c00"
+    url "https://files.pythonhosted.org/packages/81/5b/879b2f932adfa7a053c360d50bc896c977fa6426109185f7c12ebdd0cb9d/tzlocal-5.4.4.tar.gz"
+    sha256 "8dbb8660838688a7b6ba4fed31d18dedf842afb4d47ca050d6d891c2c15f3be4"
   end
 
   resource "uvicorn" do
@@ -198,8 +198,8 @@ class Jobhound < Formula
   end
 
   resource "wcwidth" do
-    url "https://files.pythonhosted.org/packages/49/b4/51fe890511f0f242d07cb1ebe6a5b6db417262b9d2568b460347c57d95cc/wcwidth-0.8.1.tar.gz"
-    sha256 "faf5b4a5366a72dc49cad48cdf21f52bdf63bdda995178e483ba247ff79089b9"
+    url "https://files.pythonhosted.org/packages/34/74/c6428f875774288bec1396f5bfcbc2d925700a4dad61727fd5f2b12f249d/wcwidth-0.8.2.tar.gz"
+    sha256 "91fbef97204b96a3d4d421609b80340b760cf33e26da123ff243d76b1fda8dda"
   end
 
   resource "xdg-base-dirs" do
