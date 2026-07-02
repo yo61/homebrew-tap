@@ -57,7 +57,8 @@ jobs:
             files="$(git diff --name-only --diff-filter=d "$base" HEAD -- 'Casks/*.rb' 'Formula/*.rb' || true)"
             if [ -n "$files" ]; then
               echo "Changed since $base:"
-              echo "$files" | sed 's/^/  /'
+              # Indent each line two spaces (bash param expansion, not sed: SC2001).
+              echo "  ${files//$'\n'/$'\n'  }"
             fi
           fi
 
