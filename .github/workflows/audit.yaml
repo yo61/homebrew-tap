@@ -30,7 +30,7 @@ jobs:
         env:
           # Both SHA values come from GitHub-computed event payload (not
           # user-supplied), but bind via env: + shell expansion anyway to
-          # match the workflow-hardening pattern used by bump-jobhound.yml.
+          # match the workflow-hardening pattern used by bump-jobhound.yaml.
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
@@ -107,7 +107,7 @@ jobs:
       # Disable Homebrew's Linux install sandbox. The sandbox requires
       # rootless bubblewrap + unprivileged user namespaces; Ubuntu 24.04
       # (ubuntu-latest) blocks the namespaces by default via AppArmor.
-      # See bump-jobhound.yml for the same fix applied there.
+      # See bump-jobhound.yaml for the same fix applied there.
       - name: brew install (+ brew test for formulas)
         if: steps.artifacts.outputs.skip != 'true'
         env:
