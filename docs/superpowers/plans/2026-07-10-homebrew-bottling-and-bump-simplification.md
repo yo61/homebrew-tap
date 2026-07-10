@@ -529,7 +529,55 @@ git commit -m "ci: retire audit.yaml in favour of test-bot; document bottling"
 
 ---
 
-### Task 6: Rollout verification (manual)
+### Task 6: Normalize the new workflow's extension to `.yaml`
+
+**Files:**
+- Rename: `.github/workflows/tests.yml` → `.github/workflows/tests.yaml`
+- Modify: `README.md`, `.github/workflows/bump-unifictl.yaml`, `.github/workflows/bump-jobhound.yaml` (filename references only)
+
+**Rationale:** This tap standardized on the `.yaml` extension for all workflow files (PR #43). Task 1 created `tests.yml` following tap-new's convention; rename it for consistency. The `publish-bottles.yaml` `workflow_run` trigger references the workflow by its `name:` (`"brew test-bot"`), **not** its filename, so the rename does not affect it — do not change `publish-bottles.yaml`.
+
+- [ ] **Step 1: Rename the file preserving history**
+
+```bash
+git mv .github/workflows/tests.yml .github/workflows/tests.yaml
+```
+
+- [ ] **Step 2: Update the filename references**
+
+Replace `tests.yml` → `tests.yaml` in the three files that name it:
+- `README.md` — the `.github/workflows/tests.yml` reference in the "How content lands here" section.
+- `.github/workflows/bump-unifictl.yaml` and `.github/workflows/bump-jobhound.yaml` — the PR-body prose `tests.yml builds bottles; ...`.
+
+```bash
+sed -i '' 's#\.github/workflows/tests\.yml#.github/workflows/tests.yaml#g; s/\btests\.yml\b/tests.yaml/g' \
+  README.md .github/workflows/bump-unifictl.yaml .github/workflows/bump-jobhound.yaml
+```
+
+- [ ] **Step 3: Confirm nothing else breaks**
+
+Run:
+```bash
+rg -n 'tests\.yml\b' .github README.md   # expect: no output
+rg -n 'workflows:' .github/workflows/publish-bottles.yaml   # confirm still: workflows: ["brew test-bot"] (name-based, unchanged)
+```
+Expected: no remaining `tests.yml` references; `publish-bottles.yaml` still triggers by workflow name.
+
+- [ ] **Step 4: Validate the renamed workflow**
+
+Run: `actionlint .github/workflows/tests.yaml && zizmor .github/workflows/tests.yaml`
+Expected: both clean (identical content, just a new path).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A .github/workflows/ README.md
+git commit -m "ci: rename tests.yml to tests.yaml for extension consistency"
+```
+
+---
+
+### Task 7: Rollout verification (manual)
 
 **Files:** none (verification only).
 
