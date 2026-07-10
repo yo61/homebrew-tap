@@ -144,4 +144,4 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title "chore(unifictl): bump to $VERSION" \
-            --body "Automated bump triggered by unifictl's release workflow. tests.yml builds bottles; publish-bottles.yaml runs pr-pull once green."
+            --body "Automated bump triggered by unifictl's release workflow. tests.yaml builds bottles; publish-bottles.yaml runs pr-pull once green."

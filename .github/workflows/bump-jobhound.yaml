@@ -151,4 +151,4 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title "chore(jobhound): bump to $VERSION" \
-            --body "Automated bump triggered by jobhound's release workflow. tests.yml builds bottles; publish-bottles.yaml runs pr-pull once green."
+            --body "Automated bump triggered by jobhound's release workflow. tests.yaml builds bottles; publish-bottles.yaml runs pr-pull once green."
