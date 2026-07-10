@@ -22,7 +22,14 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository &&
       startsWith(github.event.workflow_run.head_branch, 'bump/')
     permissions:
-      contents: read
+      # GITHUB_TOKEN is what pr-pull uses (HOMEBREW_GITHUB_API_TOKEN below):
+      # actions:read to download test-bot's bottle artifacts, contents:write to
+      # create the release and upload them. The App is not granted Actions, so
+      # its token can't do this — the App token is used only for the push, which
+      # needs the tap-main bypass. pull-requests:read lets pr-pull read the PR.
+      actions: read
+      contents: write
+      pull-requests: read
     steps:
       - name: Mint App token
         id: app-token
@@ -34,9 +41,6 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-contents: write
           permission-pull-requests: write
-          # pr-pull downloads the bottles test-bot uploaded as workflow
-          # artifacts and reads the test-bot run via the Actions API.
-          permission-actions: read
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
@@ -48,8 +52,11 @@ jobs:
 
       - name: Pull bottles
         env:
+          # gh (pr list) uses the App token for pull-requests access; pr-pull's
+          # own API calls use GITHUB_TOKEN, which has actions:read (artifacts)
+          # and contents:write (release) from the job permissions above.
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          HOMEBREW_GITHUB_API_TOKEN: ${{ steps.app-token.outputs.token }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           # pr-pull loads the formula, which trips Homebrew's tap-trust gate
