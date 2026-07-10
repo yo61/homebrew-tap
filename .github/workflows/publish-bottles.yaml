@@ -76,32 +76,29 @@ jobs:
           # own first-party tap, so the gate adds nothing here.
           HOMEBREW_NO_REQUIRE_TAP_TRUST: "1"
           RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euxo pipefail
           version="${HEAD_BRANCH#bump/jobhound-}"
 
-          # Resolve yo61/tap to the checked-out tested commit so brew edits it
-          # (same symlink pattern as bump-jobhound.yaml, which checks out at the
-          # workspace root and symlinks $GITHUB_WORKSPACE as the tap).
-          tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
-          rm -rf "$tap_dir"
-          mkdir -p "$(dirname "$tap_dir")"
-          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
+          # setup-homebrew symlinked yo61/tap to this workspace AND hard-reset it
+          # to main (0.16.0). Restore the exact commit test-bot bottled so brew
+          # edits the 0.17.0 formula, not the 0.16.0 on main. The object is
+          # already present from the earlier checkout; fetch it as a fallback.
+          cd "$GITHUB_WORKSPACE"
+          git checkout --quiet --force "$HEAD_SHA" 2>/dev/null || {
+            git fetch --depth 1 \
+              "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" "$HEAD_SHA"
+            git checkout --quiet --force "$HEAD_SHA"
+          }
+          echo "formula at tested commit: $(grep -m1 'jobhound-[0-9]' Formula/jobhound.rb)"
 
           # Download the bottles test-bot uploaded (App token has actions:read).
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/bottles"
 
-          # pr-upload reads *.bottle.json from the cwd; run it in the tap.
-          cd "$tap_dir"
+          # pr-upload reads *.bottle.json from the cwd (the tap).
           find "$RUNNER_TEMP/bottles" -name '*.bottle.*' -exec cp {} . \;
-
-          # DEBUG: what version does brew actually resolve for the formula?
-          echo "DEBUG file url:  $(grep -m1 'jobhound-[0-9]' Formula/jobhound.rb)"
-          echo "DEBUG factory:   $(brew ruby -e 'puts Formulary.factory("yo61/tap/jobhound").pkg_version' 2>&1 || true)"
-          echo "DEBUG installed: $(brew list --versions jobhound 2>&1 || true)"
-          echo "DEBUG tap path:  $(brew tap-info yo61/tap --json 2>/dev/null | jq -r '.[0].path' || true)"
-
           brew pr-upload --verbose \
             --root-url="https://github.com/${GITHUB_REPOSITORY}/releases/download/jobhound-${version}"
           rm -f ./*.bottle.*
