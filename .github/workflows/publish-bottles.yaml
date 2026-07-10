@@ -34,6 +34,9 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-contents: write
           permission-pull-requests: write
+          # pr-pull downloads the bottles test-bot uploaded as workflow
+          # artifacts and reads the test-bot run via the Actions API.
+          permission-actions: read
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
