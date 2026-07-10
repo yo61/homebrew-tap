@@ -49,6 +49,12 @@ jobs:
           HOMEBREW_GITHUB_API_TOKEN: ${{ steps.app-token.outputs.token }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          # pr-pull loads the formula, which trips Homebrew's tap-trust gate
+          # (test-bot auto-trusts the tap it tests; pr-pull does not). This is
+          # our own first-party tap publishing our own bottles, so the gate
+          # adds nothing here. (Durable alternative once this env var is
+          # removed upstream: `brew trust yo61/tap` before pr-pull.)
+          HOMEBREW_NO_REQUIRE_TAP_TRUST: "1"
         run: |
           set -euo pipefail
           pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$HEAD_BRANCH" \
