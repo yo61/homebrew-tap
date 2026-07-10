@@ -151,10 +151,15 @@ Each unit has one purpose and a well-defined trigger/interface.
   with a justification comment: the trigger is inherent to the design and the
   same-repo + `bump/` guards make the privileged run safe.
 - **Steps:** mint `SEMANTIC_RELEASE_APP` token → `setup-homebrew` →
-  `Homebrew/actions/git-user-config` → resolve the PR number from
-  `github.event.workflow_run.pull_requests[0].number` → `brew pr-pull --tap
-  yo61/homebrew-tap <PR#>` (with `HOMEBREW_GITHUB_API_TOKEN` = App token) →
-  `Homebrew/actions/git-try-push` to `main` with the App token.
+  `Homebrew/actions/git-user-config` → resolve the open PR number by head
+  branch (`gh pr list --head "$HEAD_BRANCH"`) → `brew pr-pull --tap
+  yo61/homebrew-tap --head-sha "$HEAD_SHA" <PR#>` (with `HOMEBREW_GITHUB_API_TOKEN`
+  = App token) → `Homebrew/actions/git-try-push` to `main` with the App token.
+- **`--head-sha` pin:** `pr-pull` is pinned to `github.event.workflow_run.head_sha`
+  — the exact commit test-bot went green on and built bottles for. The branch head
+  can move between the green run and this job firing; `--head-sha` makes `pr-pull`
+  refuse to publish anything other than the reviewed/tested commit (matches
+  Homebrew's own `publish.yml` template and the tap-maintenance docs).
 - **Interface in:** the completed `tests.yml` run (for its bottle artifacts) and
   the PR number.
 

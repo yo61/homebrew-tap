@@ -48,6 +48,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           HOMEBREW_GITHUB_API_TOKEN: ${{ steps.app-token.outputs.token }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$HEAD_BRANCH" \
@@ -56,8 +57,11 @@ jobs:
             echo "::error::no open PR found for branch $HEAD_BRANCH"
             exit 1
           fi
-          echo "Pulling bottles for PR #$pr"
-          brew pr-pull --debug --tap="$GITHUB_REPOSITORY" "$pr"
+          # Pin pr-pull to the exact sha test-bot went green on. The branch head
+          # can move between the green run and this job; --head-sha makes pr-pull
+          # refuse to publish anything other than the reviewed/tested commit.
+          echo "Pulling bottles for PR #$pr at $HEAD_SHA"
+          brew pr-pull --debug --tap="$GITHUB_REPOSITORY" --head-sha="$HEAD_SHA" "$pr"
 
       - name: Push commits
         uses: Homebrew/actions/git-try-push@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
