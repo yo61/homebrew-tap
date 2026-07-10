@@ -75,11 +75,6 @@ jobs:
           # gate (test-bot auto-trusts the tap it tests; this job does not). Our
           # own first-party tap, so the gate adds nothing here.
           HOMEBREW_NO_REQUIRE_TAP_TRUST: "1"
-          # Read the formula from the checked-out file (the tested 0.17.0
-          # commit), not Homebrew's cached tap-API metadata, which reflects the
-          # tap's main branch (still 0.16.0) and would make `bottle --merge`
-          # reject the bottles as version-mismatched.
-          HOMEBREW_NO_INSTALL_FROM_API: "1"
           RUN_ID: ${{ github.event.workflow_run.id }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
@@ -100,6 +95,13 @@ jobs:
           # pr-upload reads *.bottle.json from the cwd; run it in the tap.
           cd "$tap_dir"
           find "$RUNNER_TEMP/bottles" -name '*.bottle.*' -exec cp {} . \;
+
+          # DEBUG: what version does brew actually resolve for the formula?
+          echo "DEBUG file url:  $(grep -m1 'jobhound-[0-9]' Formula/jobhound.rb)"
+          echo "DEBUG factory:   $(brew ruby -e 'puts Formulary.factory("yo61/tap/jobhound").pkg_version' 2>&1 || true)"
+          echo "DEBUG installed: $(brew list --versions jobhound 2>&1 || true)"
+          echo "DEBUG tap path:  $(brew tap-info yo61/tap --json 2>/dev/null | jq -r '.[0].path' || true)"
+
           brew pr-upload --verbose \
             --root-url="https://github.com/${GITHUB_REPOSITORY}/releases/download/jobhound-${version}"
           rm -f ./*.bottle.*
