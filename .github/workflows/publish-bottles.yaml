@@ -1,4 +1,15 @@
-name: brew pr-pull
+name: publish bottles
+
+# Publishes the bottles test-bot built for a bump/* PR, then lands the bottled
+# formula on main.
+#
+# This does NOT use `brew pr-pull`: pr-pull finds and downloads the CI artifacts
+# via `GitHub.get_workflow_run`, which requires a token presenting the classic
+# `repo` OAuth scope. Our fine-grained App token (and GITHUB_TOKEN) report no
+# classic scopes, so pr-pull rejects them. Instead we download the artifacts
+# ourselves with `gh run download` (App token, actions:read) and hand them to
+# `brew pr-upload`, which merges the bottle DSL into the formula and uploads the
+# bottles to a GitHub Release via GitHubReleases — no scope-gated call.
 
 on:
   workflow_run:
@@ -14,7 +25,7 @@ permissions:
   contents: read
 
 jobs:
-  pr-pull:
+  publish:
     runs-on: ubuntu-latest
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
@@ -34,7 +45,7 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-contents: write
           permission-pull-requests: write
-          # pr-pull reads the test-bot run and downloads its bottle artifacts.
+          # actions:read lets `gh run download` fetch test-bot's bottle artifacts.
           permission-actions: read
 
       - name: Set up Homebrew
@@ -45,34 +56,69 @@ jobs:
       - name: Set up git
         uses: Homebrew/actions/git-user-config@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
 
-      - name: Pull bottles
+      # Check out the exact commit test-bot went green on, so the bottle block is
+      # added to the reviewed/tested formula and nothing newer sneaks onto main.
+      - name: Check out the tested commit
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+          path: tap
+
+      - name: Merge bottles and upload to the release
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           HOMEBREW_GITHUB_API_TOKEN: ${{ steps.app-token.outputs.token }}
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          # pr-pull loads the formula, which trips Homebrew's tap-trust gate
-          # (test-bot auto-trusts the tap it tests; pr-pull does not). This is
-          # our own first-party tap publishing our own bottles, so the gate
-          # adds nothing here. (Durable alternative once this env var is
-          # removed upstream: `brew trust yo61/tap` before pr-pull.)
+          # brew bottle --merge loads the formula, tripping Homebrew's tap-trust
+          # gate (test-bot auto-trusts the tap it tests; this job does not). Our
+          # own first-party tap, so the gate adds nothing here.
           HOMEBREW_NO_REQUIRE_TAP_TRUST: "1"
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          version="${HEAD_BRANCH#bump/jobhound-}"
+
+          # Resolve yo61/tap to the checked-out tested commit so brew edits it.
+          tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
+          rm -rf "$tap_dir"
+          mkdir -p "$(dirname "$tap_dir")"
+          ln -s "$GITHUB_WORKSPACE/tap" "$tap_dir"
+
+          # Download the bottles test-bot uploaded (App token has actions:read).
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/bottles"
+
+          # pr-upload reads *.bottle.json from the cwd; run it in the tap.
+          cd "$tap_dir"
+          find "$RUNNER_TEMP/bottles" -name '*.bottle.*' -exec cp {} . \;
+          brew pr-upload --verbose \
+            --root-url="https://github.com/${GITHUB_REPOSITORY}/releases/download/jobhound-${version}"
+          rm -f ./*.bottle.*
+
+          # Commit the bottle block onto the tested commit.
+          if git diff --quiet -- Formula/jobhound.rb; then
+            echo "::error::formula unchanged after pr-upload; no bottle block was added"
+            exit 1
+          fi
+          git add Formula/jobhound.rb
+          git commit -m "chore(jobhound): add bottles for ${version}"
+
+      - name: Push to main
+        uses: Homebrew/actions/git-try-push@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          directory: tap
+          branch: main
+
+      - name: Close the bump PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
           pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$HEAD_BRANCH" \
                  --state open --json number --jq '.[0].number')
-          if [[ -z "$pr" || "$pr" == "null" ]]; then
-            echo "::error::no open PR found for branch $HEAD_BRANCH"
-            exit 1
+          if [[ -n "$pr" && "$pr" != "null" ]]; then
+            gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --delete-branch \
+              --comment "Bottled and landed on main via publish-bottles."
           fi
-          # Pin pr-pull to the exact sha test-bot went green on. The branch head
-          # can move between the green run and this job; --head-sha makes pr-pull
-          # refuse to publish anything other than the reviewed/tested commit.
-          echo "Pulling bottles for PR #$pr at $HEAD_SHA"
-          brew pr-pull --debug --tap="$GITHUB_REPOSITORY" --head-sha="$HEAD_SHA" "$pr"
-
-      - name: Push commits
-        uses: Homebrew/actions/git-try-push@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          branch: main
