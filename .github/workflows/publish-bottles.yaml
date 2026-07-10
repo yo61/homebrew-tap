@@ -58,7 +58,6 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
-          path: tap
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
@@ -79,14 +78,16 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           version="${HEAD_BRANCH#bump/jobhound-}"
 
-          # Resolve yo61/tap to the checked-out tested commit so brew edits it.
+          # Resolve yo61/tap to the checked-out tested commit so brew edits it
+          # (same symlink pattern as bump-jobhound.yaml, which checks out at the
+          # workspace root and symlinks $GITHUB_WORKSPACE as the tap).
           tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
           rm -rf "$tap_dir"
           mkdir -p "$(dirname "$tap_dir")"
-          ln -s "$GITHUB_WORKSPACE/tap" "$tap_dir"
+          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
 
           # Download the bottles test-bot uploaded (App token has actions:read).
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/bottles"
@@ -110,7 +111,7 @@ jobs:
         uses: Homebrew/actions/git-try-push@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
         with:
           token: ${{ steps.app-token.outputs.token }}
-          directory: tap
+          directory: ${{ github.workspace }}
           branch: main
 
       - name: Close the bump PR

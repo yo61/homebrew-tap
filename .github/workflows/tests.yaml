@@ -29,6 +29,11 @@ jobs:
             container: ghcr.io/homebrew/brew:main
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
+    env:
+      # The Linux job runs in a container where bubblewrap's sandbox probe
+      # can't get the namespaces it needs; Homebrew warns and builds unsandboxed
+      # anyway. Skip the probe (and the noise) — CI runners are ephemeral.
+      HOMEBREW_NO_SANDBOX: "1"
     permissions:
       actions: read
       checks: read
