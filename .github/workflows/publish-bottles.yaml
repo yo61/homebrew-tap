@@ -48,6 +48,18 @@ jobs:
           # actions:read lets `gh run download` fetch test-bot's bottle artifacts.
           permission-actions: read
 
+      # Check out the exact commit test-bot went green on, so the bottle block is
+      # added to the reviewed/tested formula and nothing newer sneaks onto main.
+      # This runs BEFORE Set up Homebrew / Set up git: those configure a global
+      # git Authorization header, and actions/checkout adds its own — two
+      # Authorization headers make GitHub reject the fetch ("Duplicate header").
+      - name: Check out the tested commit
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+          path: tap
+
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
         with:
@@ -55,15 +67,6 @@ jobs:
 
       - name: Set up git
         uses: Homebrew/actions/git-user-config@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
-
-      # Check out the exact commit test-bot went green on, so the bottle block is
-      # added to the reviewed/tested formula and nothing newer sneaks onto main.
-      - name: Check out the tested commit
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          persist-credentials: false
-          path: tap
 
       - name: Merge bottles and upload to the release
         env:
