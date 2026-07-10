@@ -3,8 +3,8 @@ class Unifictl < Formula
 
   desc "Imperative UniFi homelab actions beyond the Integration API"
   homepage "https://github.com/yo61/unifictl"
-  url "https://files.pythonhosted.org/packages/98/c6/e7312bbff136cfed703cbdd05df4124dca736d69294b31854376c5b5e8dc/unifictl-0.1.0.tar.gz"
-  sha256 "6c38b7ddba665842b1f119ded15489ad095453b1b53ac20aa5d796c9cbc040ea"
+  url "https://files.pythonhosted.org/packages/f7/ed/ab91805afde2a7bc53242a6217520771842d5e5281e00853757647d46b6e/unifictl-0.2.0.tar.gz"
+  sha256 "d2c210c8e3a075383d00514069711a434db81972aca2946a58d26d8a52fd56c4"
   license "Apache-2.0"
 
   depends_on "python@3.13"
