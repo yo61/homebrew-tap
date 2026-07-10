@@ -20,7 +20,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-26, macos-15-intel]
+        # No macos-15-intel: jobhound's deps (cryptography/pydantic/rpds-py)
+        # have no Intel-Sequoia bottle in homebrew/core, so jobhound can't be
+        # bottled there — the job would only ever warn "No bottle built".
+        os: [macos-26]
         include:
           - os: ubuntu-latest
             container: ghcr.io/homebrew/brew:main
