@@ -5,26 +5,22 @@ cask "go-udap" do
   on_macos do
     on_intel do
       sha256 "ac1a29230b89483c6e341ac3698740ae6b7e87ffc6cc36a8117ffdc2d6c5ebef"
-      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_macos_x86_64.tar.gz",
-        verified: "github.com/yo61/go-udap"
+      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_macos_x86_64.tar.gz"
     end
     on_arm do
       sha256 "bd40735b3cf8dbde0f7b9798f2a9d0d4b69b9bcd1ed8d8cb460276d86a077eac"
-      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_macos_arm64.tar.gz",
-        verified: "github.com/yo61/go-udap"
+      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_macos_arm64.tar.gz"
     end
   end
 
   on_linux do
     on_intel do
       sha256 "9e0acf73fc4aaa643a3f0d45e7f9d46033ba8085ff3e5838397a15b06d6c940f"
-      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_linux_x86_64.tar.gz",
-        verified: "github.com/yo61/go-udap"
+      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_linux_x86_64.tar.gz"
     end
     on_arm do
       sha256 "bbbe190e69b05935b03207b50a80a1eed8fa8f8b73d222761c5e50c8e802d1b9"
-      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_linux_arm64.tar.gz",
-        verified: "github.com/yo61/go-udap"
+      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_linux_arm64.tar.gz"
     end
   end
 
@@ -51,11 +47,8 @@ cask "go-udap" do
   zsh_completion "completions/_go-udap"
 
   postflight do
-    if OS.mac?
-      system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/go-udap"]
-    end
+    system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/go-udap"] if OS.mac?
   end
 
   # No zap stanza required
-
 end
