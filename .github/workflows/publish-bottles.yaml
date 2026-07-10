@@ -1,0 +1,70 @@
+name: brew pr-pull
+
+on:
+  workflow_run:
+    # zizmor: ignore[dangerous-triggers]
+    # Safe: this job only runs for same-repo bump/* branches (see the job's
+    # `if:` guard), which only the SEMANTIC_RELEASE_APP creates. Fork PRs fail
+    # the head_repository check and can never reach the write-capable App token.
+    workflows: ["brew test-bot"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  pr-pull:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'bump/')
+    permissions:
+      contents: read
+    steps:
+      - name: Mint App token
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
+        with:
+          client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Set up git
+        uses: Homebrew/actions/git-user-config@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+
+      - name: Pull bottles
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$HEAD_BRANCH" \
+                 --state open --json number --jq '.[0].number')
+          if [[ -z "$pr" || "$pr" == "null" ]]; then
+            echo "::error::no open PR found for branch $HEAD_BRANCH"
+            exit 1
+          fi
+          # Pin pr-pull to the exact sha test-bot went green on. The branch head
+          # can move between the green run and this job; --head-sha makes pr-pull
+          # refuse to publish anything other than the reviewed/tested commit.
+          echo "Pulling bottles for PR #$pr at $HEAD_SHA"
+          brew pr-pull --debug --tap="$GITHUB_REPOSITORY" --head-sha="$HEAD_SHA" "$pr"
+
+      - name: Push commits
+        uses: Homebrew/actions/git-try-push@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: main

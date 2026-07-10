@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Jobhound version to bump to (e.g. 0.10.0 or v0.10.0)"
+        description: "jobhound version to bump to (e.g. 0.1.0 or v0.1.0)"
         required: true
         type: string
 
@@ -17,8 +17,7 @@ jobs:
     name: Bump jobhound
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - name: Validate version payload
         id: version
@@ -32,7 +31,6 @@ jobs:
             echo "::error::no version supplied (client_payload.version or workflow_dispatch.inputs.version)"
             exit 1
           fi
-          # Strip a leading 'v', then enforce PEP-440-ish semver+pre/post forms.
           v="${raw#v}"
           if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][a-zA-Z0-9._-]+)?$ ]]; then
             echo "::error::Invalid version format: $raw"
@@ -40,7 +38,6 @@ jobs:
           fi
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "branch=bump/jobhound-$v" >> "$GITHUB_OUTPUT"
-          echo "Resolved version: $v"
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -62,23 +59,16 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
-        with:
-          python-version: "3.13"
-          enable-cache: false
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
 
       - name: Wait for PyPI simple index to publish new version
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          # PyPI's JSON API (/pypi/jobhound/<v>/json) publishes synchronously
-          # with twine upload — the previous "Fetch new sdist metadata" step
-          # proved the release exists. But uv pip resolves against the
-          # /simple/ index, which is served via Fastly and can lag by tens of
-          # seconds on first read. Without this poll, dispatches that fire
-          # immediately after a release race the CDN and fail with
-          # "No solution found ... no version of jobhound[mcp]==<v>".
+          # uv/pip resolve against the /simple/ index, served via Fastly and
+          # lagging the JSON API by tens of seconds on first read.
           for i in $(seq 1 30); do
             if curl -sfH 'Cache-Control: no-cache' \
                  "https://pypi.org/simple/jobhound/" \
@@ -91,274 +81,74 @@ jobs:
           echo "::error::jobhound-${VERSION} not visible on PyPI simple index after 120s"
           exit 1
 
-      - name: Generate resource blocks
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          uv venv /tmp/venv --python 3.13
-          uv pip install --python /tmp/venv/bin/python \
-            "homebrew-pypi-poet" "setuptools<80" "jobhound[mcp]==${VERSION}"
-          # poet -r walks runtime deps; --also brings in the mcp extra's tree.
-          /tmp/venv/bin/poet -r jobhound --also mcp > /tmp/resources-raw.rb
-          # Strip:
-          #   - the (incorrect) jobhound self-resource — it's the head
-          #     `url`/`sha256`, not a resource
-          #   - cffi / cryptography / pycparser — provided by brewed
-          #     `cryptography` formula
-          #   - pydantic / pydantic-core — provided by brewed `pydantic`
-          #   - rpds-py — provided by brewed `rpds-py`
-          # The brewed formulae are wired via `depends_on` +
-          # `pypi_packages exclude_packages` in Formula/jobhound.rb.
-          # Generating resources for these would still install them into
-          # the venv (overriding the brewed copies) and pull a Rust
-          # toolchain back in as a build dep (cryptography, pydantic-core,
-          # and rpds-py all use maturin).
-          # Then normalize Ruby-style names (underscores -> hyphens) to
-          # match the formula's convention.
-          # Match both the underscore (pydantic_core, rpds_py) and hyphen
-          # (pydantic-core, rpds-py) emit forms. poet's output style has
-          # varied across versions; covering both is cheap and avoids the
-          # silent miss observed in yo61/homebrew-tap PR #17 where the
-          # rpds-py block leaked into the formula because the awk pattern
-          # only matched the underscore form.
-          #
-          # After matching `  end`, swallow the trailing blank line so two
-          # adjacent surviving blocks don't end up separated by 2 blank
-          # lines. The patcher in the next step uses `\n\n?` to mark the
-          # end of each resource block; 2 consecutive blank lines stop the
-          # regex mid-region and leave a partial replacement (also
-          # observed in PR #17).
-          awk '
-            /^  resource "(jobhound|cffi|cryptography|pycparser|pydantic|pydantic_core|pydantic-core|rpds_py|rpds-py)" do$/ {
-              skip = 1; next
-            }
-            skip && /^  end$/ { skip = 2; next }
-            skip == 2 && /^$/ { skip = 0; next }
-            skip { next }
-            { print }
-          ' /tmp/resources-raw.rb \
-            | sed -e 's/resource "pydantic_core"/resource "pydantic-core"/' \
-                  -e 's/resource "Pygments"/resource "pygments"/' \
-                  -e 's/resource "PyJWT"/resource "pyjwt"/' \
-            > /tmp/resources.rb
-          echo "Generated $(grep -c '^  resource ' /tmp/resources.rb) resource blocks"
-
-      - name: Patch Formula/jobhound.rb
-        env:
-          NEW_URL: ${{ steps.sdist.outputs.url }}
-          NEW_SHA: ${{ steps.sdist.outputs.sha }}
-        run: |
-          set -euo pipefail
-          python3 << 'PY'
-          import os, re
-          new_url = os.environ["NEW_URL"]
-          new_sha = os.environ["NEW_SHA"]
-          resources = open("/tmp/resources.rb").read().rstrip() + "\n"
-
-          formula = open("Formula/jobhound.rb").read()
-          formula, n = re.subn(r'^(  url )"[^"]+"', f'\\1"{new_url}"', formula, count=1, flags=re.M)
-          assert n == 1, "couldn't find head url line"
-          formula, n = re.subn(r'^(  sha256 )"[^"]+"', f'\\1"{new_sha}"', formula, count=1, flags=re.M)
-          assert n == 1, "couldn't find head sha256 line"
-          # Replace the contiguous run of `  resource "..." do ... end`
-          # blocks with the regenerated set. Anchoring on the resource
-          # blocks themselves (rather than the surrounding `depends_on`
-          # / `def install` markers) lets us preserve declarations that
-          # sit alongside the resources, e.g. `pypi_packages
-          # exclude_packages: %w[...]`.
-          pattern = re.compile(
-              r'(?:  resource "[^"]+" do\n(?:[^\n]*\n)*?  end\n\n?)+',
-          )
-          formula, n = pattern.subn(resources, formula, count=1)
-          assert n == 1, "couldn't find resource block region"
-          open("Formula/jobhound.rb", "w").write(formula)
-          PY
-          echo "::group::patched formula diff (head)"
-          head -20 Formula/jobhound.rb
-          echo "::endgroup::"
-          # Snapshot the patched formula outside the workspace. Later brew
-          # commands (audit / install / test) trigger a `brew update`
-          # preamble that does `git fetch && git reset --hard origin/HEAD`
-          # against every tap — including the symlinked yo61/tap, which is
-          # $GITHUB_WORKSPACE. That silently reverts this step's changes
-          # before the "Open PR with signed commit" step reads the file,
-          # producing an empty commit and a no-op bump PR (observed in
-          # yo61/homebrew-tap PRs #6 and run #26642692309). Reading the
-          # commit content from /tmp instead of the workspace keeps the
-          # patch authoritative regardless of what brew does.
-          cp Formula/jobhound.rb /tmp/patched-formula.rb
-
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-28
-
       - name: Tap this checkout as yo61/tap
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
           rm -rf "$tap_dir"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
 
-      # Restore the patched formula before brew commands run. `brew audit`,
-      # `brew install`, and `brew test` each fire an implicit `brew update`
-      # preamble that does `git fetch && git reset --hard origin/HEAD`
-      # against every tap — including the symlinked yo61/tap, which IS the
-      # workspace. Without restoring, brew validates the pre-patch formula
-      # (whatever's on origin/main) and any bug introduced by this run goes
-      # undetected until after the PR is opened.
-      #
-      # Belt-and-braces: `HOMEBREW_NO_AUTO_UPDATE=1` blocks the implicit
-      # update; the cp ensures correctness even if brew updates anyway.
-      - name: brew audit --strict --new
+      - name: Bump url/sha256 and regenerate resources
         env:
+          NEW_URL: ${{ steps.sdist.outputs.url }}
+          NEW_SHA: ${{ steps.sdist.outputs.sha }}
+          # Prevent brew's implicit auto-update from git-resetting the
+          # symlinked tap (which would revert our edits).
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           set -euxo pipefail
-          cp /tmp/patched-formula.rb Formula/jobhound.rb
-          brew audit --strict --new yo61/tap/jobhound
+          brew bump-formula-pr --write-only --no-audit \
+            --url="$NEW_URL" --sha256="$NEW_SHA" \
+            yo61/tap/jobhound
+          # jobhound installs the [mcp] extra; cffi/cryptography/pycparser
+          # (brewed cryptography), pydantic/pydantic-core (brewed pydantic),
+          # and rpds-py (brewed rpds-py) are provided via depends_on and must
+          # NOT be vendored as resources (that would drag a Rust toolchain in).
+          brew update-python-resources --install-dependencies \
+            --package-name "jobhound[mcp]" \
+            --exclude-packages "cffi,cryptography,pycparser,pydantic,pydantic-core,rpds-py" \
+            yo61/tap/jobhound
+          echo "::group::patched formula (head)"
+          head -20 Formula/jobhound.rb
+          echo "::endgroup::"
 
-      # Disable Homebrew's Linux install sandbox. The sandbox requires
-      # rootless bubblewrap + unprivileged user namespaces; Ubuntu 24.04
-      # (ubuntu-latest) blocks the namespaces by default via AppArmor,
-      # so even installing bubblewrap isn't enough. The sandbox protects
-      # the host from build-script tampering — on a one-shot ephemeral
-      # CI runner installing a formula whose contents are validated by
-      # `brew audit --strict` and whose tarball comes from PyPI, that
-      # protection is theatre.
-      - name: brew install + brew test
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-          HOMEBREW_NO_SANDBOX_LINUX: "1"
-        run: |
-          set -euxo pipefail
-          cp /tmp/patched-formula.rb Formula/jobhound.rb
-          brew install --verbose yo61/tap/jobhound
-          brew test yo61/tap/jobhound
-
-      # Mint an App token for `gh pr create`. PRs opened by GITHUB_TOKEN
-      # (i.e. authored by github-actions[bot]) don't trigger downstream
-      # `pull_request` workflow runs, so audit.yaml never fires against
-      # the bump PR. Using the App token authors the PR as the App,
-      # which DOES trigger downstream workflows. The commit itself stays
-      # signed by github-actions[bot] via createCommitOnBranch (below) to
-      # satisfy the required_signatures ruleset on main.
-      - id: create_pr_token
+      - name: Mint App token
+        id: app-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
         with:
           client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
-          permission-pull-requests: write
-          # contents:write so `gh pr merge --delete-branch` can delete the
-          # head ref after the auto-merge fires.
           permission-contents: write
+          permission-pull-requests: write
 
-      - name: Open PR with signed commit
+      - name: Commit and open PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APP_TOKEN: ${{ steps.create_pr_token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           VERSION: ${{ steps.version.outputs.version }}
           BRANCH: ${{ steps.version.outputs.branch }}
         run: |
           set -euo pipefail
-          head_sha=$(git rev-parse origin/main)
-
-          # Create the branch via API (no git push, so no GITHUB_TOKEN-based
-          # push auth needed). Idempotent: if the branch already exists
-          # from a prior failed run, fall through.
-          gh api -X POST "repos/$GH_REPO/git/refs" \
-            -f ref="refs/heads/$BRANCH" \
-            -f sha="$head_sha" || true
-
-          # Read from the snapshot written by "Patch Formula/jobhound.rb",
-          # not from $GITHUB_WORKSPACE — brew auto-update may have reset
-          # the workspace back to origin/main between the patch step and
-          # this one. See the comment on the `cp` in that step.
-          test -s /tmp/patched-formula.rb || {
-            echo "::error::patched formula snapshot missing or empty"
+          if git diff --quiet -- Formula/jobhound.rb; then
+            echo "::error::formula unchanged after bump; aborting"
             exit 1
-          }
-          base64 -w0 < /tmp/patched-formula.rb > /tmp/formula.b64
-          headline="chore(jobhound): bump to $VERSION"
-
-          # Build the full GraphQL request (query + variables) as JSON via
-          # jq, with the base64 content streamed in via --rawfile, and
-          # submit via `gh api graphql --input`. The formula is small
-          # today (~10KB), but two pitfalls would otherwise sit in wait:
-          #   1. Inline `-f content=$content_b64` would exceed the
-          #      kernel's MAX_ARG_STRLEN (128KB per arg) once the formula
-          #      crossed ~95KB (E2BIG / exit 126).
-          #   2. `-f content=@/tmp/file` does NOT work — verified
-          #      empirically that gh's @filename expansion does not
-          #      apply to graphql variables; gh sends the literal path
-          #      as the value and the server rejects "Invalid Base64".
-          #
-          # createCommitOnBranch produces a commit signed by GitHub on
-          # the github-actions[bot]'s behalf, satisfying the
-          # required_signatures ruleset on main.
-          # shellcheck disable=SC2016 # jq references, not shell expansions.
-          query='mutation($repo: String!, $branch: String!, $sha: GitObjectID!, $content: Base64String!, $headline: String!) {
-            createCommitOnBranch(input: {
-              branch: { repositoryNameWithOwner: $repo, branchName: $branch },
-              message: { headline: $headline },
-              expectedHeadOid: $sha,
-              fileChanges: { additions: [{ path: "Formula/jobhound.rb", contents: $content }] }
-            }) {
-              commit { url }
-            }
-          }'
-          jq -n \
-            --arg query "$query" \
-            --arg repo "$GH_REPO" \
-            --arg branch "$BRANCH" \
-            --arg sha "$head_sha" \
-            --arg headline "$headline" \
-            --rawfile content /tmp/formula.b64 \
-            '{
-              query: $query,
-              variables: {
-                repo: $repo,
-                branch: $branch,
-                sha: $sha,
-                headline: $headline,
-                content: ($content | rtrimstr("\n"))
-              }
-            }' > /tmp/graphql.json
-          gh api graphql --input /tmp/graphql.json
-
-          if ! gh pr view "$BRANCH" >/dev/null 2>&1; then
-            # Use the App token so the PR is authored by the App, which
-            # lets `pull_request`-triggered workflows (e.g. audit.yaml)
-            # fire against the bump PR.
-            GH_TOKEN="$APP_TOKEN" gh pr create \
-              --base main \
-              --head "$BRANCH" \
-              --title "chore(jobhound): bump to $VERSION" \
-              --body "Automated bump triggered by jobhound's release workflow. Validated locally: brew audit --strict --new + brew install + brew test all pass against this commit."
-          else
-            echo "PR for $BRANCH already exists; skipping create."
           fi
-
-          # The PR is a paperwork checkpoint, not a review gate: every
-          # validation that audit.yaml runs on the PR (brew audit + install
-          # + test) has already passed locally in earlier steps of this
-          # workflow. Try `--auto` first: if a required check is still
-          # pending it queues the squash-merge to fire once that check
-          # passes. But `main` has no required status checks, so a freshly
-          # opened PR is immediately mergeable and GitHub rejects
-          # enablePullRequestAutoMerge with "Pull request is in clean
-          # status". Fall back to an immediate squash-merge in that case —
-          # validation already ran in this job, so there's nothing to wait
-          # for. (Without the fallback this raced: it only succeeded when
-          # audit.yaml's check happened to still be pending at this point.)
-          GH_TOKEN="$APP_TOKEN" gh pr merge "$BRANCH" \
-            --repo "$GH_REPO" \
-            --squash \
-            --delete-branch \
-            --auto \
-            || GH_TOKEN="$APP_TOKEN" gh pr merge "$BRANCH" \
-                 --repo "$GH_REPO" \
-                 --squash \
-                 --delete-branch
+          # Attribute the commit to the App's bot user. Branch is bump/*, not
+          # main, so the required_signatures rule does not apply here; when
+          # pr-pull later lands this on main it pushes as the bypass App.
+          bot_user="${APP_SLUG}[bot]"
+          bot_id=$(gh api "users/${bot_user}" --jq .id)
+          git config user.name "$bot_user"
+          git config user.email "${bot_id}+${bot_user}@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add Formula/jobhound.rb
+          git commit -m "chore(jobhound): bump to $VERSION"
+          git push "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(jobhound): bump to $VERSION" \
+            --body "Automated bump triggered by jobhound's release workflow. tests.yaml builds bottles; publish-bottles.yaml runs pr-pull once green."
