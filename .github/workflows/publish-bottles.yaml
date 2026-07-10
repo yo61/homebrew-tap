@@ -111,12 +111,26 @@ jobs:
             exit 1
           fi
 
+      # Not Homebrew/actions/git-try-push: it inherits the global http
+      # Authorization header setup-homebrew configured AND adds its own, so every
+      # pull/push gets "Duplicate header: Authorization" (400) and it retries
+      # forever. Push manually: drop that extraheader and auth via the token in
+      # the remote URL (as bump-jobhound.yaml does). The App bypasses the
+      # protected main branch, so the unsigned bottle commit lands.
       - name: Push to main
-        uses: Homebrew/actions/git-try-push@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          directory: ${{ github.workspace }}
-          branch: main
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euxo pipefail
+          cd "$GITHUB_WORKSPACE"
+          git config --global --unset-all "http.https://github.com/.extraheader" 2>/dev/null || true
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # main has advanced past the bump commit's base; replay the bump +
+          # bottle commit onto current main (formula is untouched on main, so no
+          # conflict), then fast-forward push.
+          git fetch --quiet "$url" main
+          git rebase FETCH_HEAD
+          git push "$url" HEAD:main
 
       - name: Close the bump PR
         env:
