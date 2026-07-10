@@ -39,7 +39,7 @@ Every task's requirements implicitly include this section.
 **Interfaces:**
 - Produces: a workflow named **`brew test-bot`** (the `name:` field — `publish-bottles.yaml` in Task 2 references this exact string in its `workflow_run` trigger). On pull requests it uploads bottle artifacts named `bottles_<os>` matching `*.bottle.*`.
 
-- [ ] **Step 1: Write `.github/workflows/tests.yml`**
+- [x] **Step 1: Write `.github/workflows/tests.yml`**
 
 ```yaml
 name: brew test-bot
@@ -110,12 +110,12 @@ jobs:
           path: '*.bottle.*'
 ```
 
-- [ ] **Step 2: Validate syntax and security**
+- [x] **Step 2: Validate syntax and security**
 
 Run: `actionlint .github/workflows/tests.yml && zizmor .github/workflows/tests.yml`
 Expected: no output from `actionlint`; `zizmor` reports no findings (exit 0).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/tests.yml
@@ -133,7 +133,7 @@ git commit -m "ci: add brew test-bot workflow to build bottles"
 - Consumes: the `brew test-bot` workflow from Task 1 (via `workflow_run`), its bottle artifacts, and the PR whose head branch starts with `bump/`.
 - Produces: bottles attached to a GitHub Release and a `bottle do` block committed to `main` (via `brew pr-pull` + `git-try-push` as the App).
 
-- [ ] **Step 1: Write `.github/workflows/publish-bottles.yaml`**
+- [x] **Step 1: Write `.github/workflows/publish-bottles.yaml`**
 
 ```yaml
 name: brew pr-pull
@@ -208,14 +208,14 @@ jobs:
           branch: main
 ```
 
-- [ ] **Step 2: Validate syntax and security**
+- [x] **Step 2: Validate syntax and security**
 
 Run: `actionlint .github/workflows/publish-bottles.yaml && zizmor .github/workflows/publish-bottles.yaml`
 Expected: no `actionlint` output; `zizmor` clean.
 
 Note: `zizmor` may warn about the `workflow_run` trigger's elevated context. If it flags the `Pull bottles` step, confirm the finding is the known `workflow_run` informational one and add a scoped `# zizmor: ignore[...]` with justification only if it is not a real issue. Do not broaden permissions to silence it.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/publish-bottles.yaml
@@ -233,7 +233,7 @@ git commit -m "ci: auto-publish bottles via pr-pull on green bump PRs"
 - Consumes: `repository_dispatch` (`bump-unifictl`) or `workflow_dispatch` with a version; the `SEMANTIC_RELEASE_APP` secrets.
 - Produces: a PR from branch `bump/unifictl-<version>` editing `Formula/unifictl.rb` — head url/sha256 updated and resource blocks regenerated. The PR is authored by the App so `tests.yml` runs on it.
 
-- [ ] **Step 1: Replace the entire file with the rewrite**
+- [x] **Step 1: Replace the entire file with the rewrite**
 
 ```yaml
 name: Bump unifictl formula
@@ -385,12 +385,12 @@ jobs:
             --body "Automated bump triggered by unifictl's release workflow. tests.yml builds bottles; publish-bottles.yaml runs pr-pull once green."
 ```
 
-- [ ] **Step 2: Validate syntax and security**
+- [x] **Step 2: Validate syntax and security**
 
 Run: `actionlint .github/workflows/bump-unifictl.yaml && zizmor .github/workflows/bump-unifictl.yaml`
 Expected: no `actionlint` output; `zizmor` clean.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/bump-unifictl.yaml
@@ -410,7 +410,7 @@ git commit -m "ci: rewrite bump-unifictl around native brew commands"
 
 This is Task 3's workflow with three differences: the package name (`jobhound`), the branch/dispatch names, and the resource-regeneration command, which must include the `[mcp]` extra and exclude the brewed compiled packages.
 
-- [ ] **Step 1: Start from the committed `bump-unifictl.yaml` and rename the identifiers**
+- [x] **Step 1: Start from the committed `bump-unifictl.yaml` and rename the identifiers**
 
 Task 3 committed `.github/workflows/bump-unifictl.yaml`, so copy it and apply the string substitutions on disk (no need to re-read Task 3):
 
@@ -434,7 +434,7 @@ name: Bump jobhound formula
           echo "branch=bump/jobhound-$v" >> "$GITHUB_OUTPUT"
 ```
 
-- [ ] **Step 2: Replace the resource-regeneration step body**
+- [x] **Step 2: Replace the resource-regeneration step body**
 
 Replace the **"Bump url/sha256 and regenerate resources"** step (which the `sed` left calling plain `update-python-resources`) with the jobhound version that adds the `[mcp]` extra and excludes the brewed compiled packages:
 
@@ -464,12 +464,12 @@ Replace the **"Bump url/sha256 and regenerate resources"** step (which the `sed`
 
 After the `sed`, every other identifier is already correct: the `Fetch new sdist metadata` step queries `https://pypi.org/pypi/jobhound/${VERSION}/json`, the `Wait for PyPI simple index` step polls `https://pypi.org/simple/jobhound/`, and the PR titles read `chore(jobhound): ...`.
 
-- [ ] **Step 3: Validate syntax and security**
+- [x] **Step 3: Validate syntax and security**
 
 Run: `actionlint .github/workflows/bump-jobhound.yaml && zizmor .github/workflows/bump-jobhound.yaml`
 Expected: no `actionlint` output; `zizmor` clean.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .github/workflows/bump-jobhound.yaml
@@ -489,18 +489,18 @@ git commit -m "ci: rewrite bump-jobhound around native brew commands"
 
 **Rationale:** `brew test-bot` in `tests.yml` audits + installs + tests across a real OS matrix, so the standalone `audit.yaml` is redundant. The `paths: [Formula/**, Casks/**]` filter on `tests.yml` preserves the "skip docs-only PRs" fast path.
 
-- [ ] **Step 1: Confirm no workflow references `audit.yaml` by name**
+- [x] **Step 1: Confirm no workflow references `audit.yaml` by name**
 
 Run: `rg -n 'audit\.yaml|audit\.yml' .github README.md`
 Expected: only comment references inside `audit.yaml` itself, if any. If another workflow references it, stop and reconcile before deleting.
 
-- [ ] **Step 2: Delete the workflow**
+- [x] **Step 2: Delete the workflow**
 
 ```bash
 git rm .github/workflows/audit.yaml
 ```
 
-- [ ] **Step 3: Update the README "How content lands here" section**
+- [x] **Step 3: Update the README "How content lands here" section**
 
 Replace the two `jobhound`/`unifictl` bullets and the trailing audit sentence with text describing the new flow. The current block is:
 
@@ -519,12 +519,12 @@ Replace it with:
 Formula PRs are audited, installed, tested, and bottled across macOS (Apple Silicon + Intel) and Linux by `.github/workflows/tests.yml` (`brew test-bot`). When that run is green on a `bump/*` PR, `.github/workflows/publish-bottles.yaml` runs `brew pr-pull` to attach the bottles to a GitHub Release and land the formula on `main`, so `brew install` pours a pre-built bottle instead of building from source.
 ```
 
-- [ ] **Step 4: Validate**
+- [x] **Step 4: Validate**
 
 Run: `rg -n 'audit\.yaml' README.md; test ! -f .github/workflows/audit.yaml && echo "audit.yaml removed"`
 Expected: no README hits; prints `audit.yaml removed`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A .github/workflows/audit.yaml README.md
@@ -541,13 +541,13 @@ git commit -m "ci: retire audit.yaml in favour of test-bot; document bottling"
 
 **Rationale:** This tap standardized on the `.yaml` extension for all workflow files (PR #43). Task 1 created `tests.yml` following tap-new's convention; rename it for consistency. The `publish-bottles.yaml` `workflow_run` trigger references the workflow by its `name:` (`"brew test-bot"`), **not** its filename, so the rename does not affect it — do not change `publish-bottles.yaml`.
 
-- [ ] **Step 1: Rename the file preserving history**
+- [x] **Step 1: Rename the file preserving history**
 
 ```bash
 git mv .github/workflows/tests.yml .github/workflows/tests.yaml
 ```
 
-- [ ] **Step 2: Update the filename references**
+- [x] **Step 2: Update the filename references**
 
 Replace `tests.yml` → `tests.yaml` in the three files that name it:
 - `README.md` — the `.github/workflows/tests.yml` reference in the "How content lands here" section.
@@ -558,7 +558,7 @@ sed -i '' 's#\.github/workflows/tests\.yml#.github/workflows/tests.yaml#g; s/\bt
   README.md .github/workflows/bump-unifictl.yaml .github/workflows/bump-jobhound.yaml
 ```
 
-- [ ] **Step 3: Confirm nothing else breaks**
+- [x] **Step 3: Confirm nothing else breaks**
 
 Run:
 ```bash
@@ -567,12 +567,12 @@ rg -n 'workflows:' .github/workflows/publish-bottles.yaml   # confirm still: wor
 ```
 Expected: no remaining `tests.yml` references; `publish-bottles.yaml` still triggers by workflow name.
 
-- [ ] **Step 4: Validate the renamed workflow**
+- [x] **Step 4: Validate the renamed workflow**
 
 Run: `actionlint .github/workflows/tests.yaml && zizmor .github/workflows/tests.yaml`
 Expected: both clean (identical content, just a new path).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A .github/workflows/ README.md
@@ -587,7 +587,7 @@ git commit -m "ci: rename tests.yml to tests.yaml for extension consistency"
 
 This task cannot be unit-tested; it is the end-to-end proof. Do these in order and record results in the PR description.
 
-- [ ] **Step 1: Confirm the ruleset bypass actor is `SEMANTIC_RELEASE_APP`**
+- [x] **Step 1: Confirm the ruleset bypass actor is `SEMANTIC_RELEASE_APP`**
 
 Run:
 ```bash
