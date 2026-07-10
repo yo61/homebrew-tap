@@ -5,6 +5,8 @@ Homebrew formulae and casks for tools published by [yo61](https://github.com/yo6
 ## Install
 
 ```bash
+brew tap yo61/tap
+brew trust yo61/tap        # required: Homebrew ignores untrusted third-party taps
 brew install yo61/tap/<name>
 ```
 
@@ -14,6 +16,13 @@ For example:
 brew install yo61/tap/jobhound   # formula
 brew install yo61/tap/go-udap    # cask
 ```
+
+> [!NOTE]
+> Recent Homebrew ignores formulae and casks from untrusted third-party taps
+> until you trust them. If `brew install` reports the tap is not trusted, run
+> `brew trust yo61/tap` (whole tap) or `brew trust --formula yo61/tap/<name>`
+> (single formula) and re-run the install. See
+> [Tap Trust](https://docs.brew.sh/Tap-Trust).
 
 ## Available formulae
 
