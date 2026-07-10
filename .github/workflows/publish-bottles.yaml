@@ -2,6 +2,10 @@ name: brew pr-pull
 
 on:
   workflow_run:
+    # zizmor: ignore[dangerous-triggers]
+    # Safe: this job only runs for same-repo bump/* branches (see the job's
+    # `if:` guard), which only the SEMANTIC_RELEASE_APP creates. Fork PRs fail
+    # the head_repository check and can never reach the write-capable App token.
     workflows: ["brew test-bot"]
     types:
       - completed
@@ -15,6 +19,7 @@ jobs:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
       startsWith(github.event.workflow_run.head_branch, 'bump/')
     permissions:
       contents: read
