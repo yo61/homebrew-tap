@@ -97,19 +97,19 @@ jobs:
           # Download the bottles test-bot uploaded (App token has actions:read).
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/bottles"
 
-          # pr-upload reads *.bottle.json from the cwd (the tap).
+          # pr-upload reads *.bottle.json from the cwd (the tap). It uploads the
+          # bottles to the release AND commits the bottle block onto HEAD
+          # ("jobhound: add <version> bottle."), so there is nothing to commit
+          # ourselves — Push to main pushes that commit.
           find "$RUNNER_TEMP/bottles" -name '*.bottle.*' -exec cp {} . \;
           brew pr-upload --verbose \
             --root-url="https://github.com/${GITHUB_REPOSITORY}/releases/download/jobhound-${version}"
           rm -f ./*.bottle.*
 
-          # Commit the bottle block onto the tested commit.
-          if git diff --quiet -- Formula/jobhound.rb; then
-            echo "::error::formula unchanged after pr-upload; no bottle block was added"
+          if ! grep -q "bottle do" Formula/jobhound.rb; then
+            echo "::error::no bottle block in formula after pr-upload"
             exit 1
           fi
-          git add Formula/jobhound.rb
-          git commit -m "chore(jobhound): add bottles for ${version}"
 
       - name: Push to main
         uses: Homebrew/actions/git-try-push@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
