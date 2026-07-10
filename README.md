@@ -33,10 +33,9 @@ brew install yo61/tap/go-udap    # cask
 Each artifact is updated by its own upstream mechanism — there's no tap-wide rule, and none of these files should be hand-edited:
 
 - `go-udap` is generated and pushed by [GoReleaser](https://goreleaser.com/) from `yo61/go-udap`'s release workflow.
-- `jobhound` is updated by `.github/workflows/bump-jobhound.yaml` in this repo, triggered via `repository_dispatch` from `yo61/jobhound`'s release workflow.
-- `unifictl` is updated by `.github/workflows/bump-unifictl.yaml` in this repo, triggered via `repository_dispatch` from `yo61/unifictl`'s release workflow.
+- `jobhound` and `unifictl` are updated by `.github/workflows/bump-jobhound.yaml` / `bump-unifictl.yaml`, triggered via `repository_dispatch` from each tool's release workflow. Each bump opens a PR that regenerates the formula with `brew bump-formula-pr` + `brew update-python-resources`.
 
-Every push and PR runs `brew audit --strict --new` and `brew install` (+ `brew test` for formulae) against changed artifacts via `.github/workflows/audit.yaml`.
+Formula PRs are audited, installed, tested, and bottled across macOS (Apple Silicon + Intel) and Linux by `.github/workflows/tests.yml` (`brew test-bot`). When that run is green on a `bump/*` PR, `.github/workflows/publish-bottles.yaml` runs `brew pr-pull` to attach the bottles to a GitHub Release and land the formula on `main`, so `brew install` pours a pre-built bottle instead of building from source.
 
 ## License
 
