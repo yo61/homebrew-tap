@@ -17,8 +17,7 @@ jobs:
     name: Bump unifictl
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - name: Validate version payload
         id: version
@@ -32,7 +31,6 @@ jobs:
             echo "::error::no version supplied (client_payload.version or workflow_dispatch.inputs.version)"
             exit 1
           fi
-          # Strip a leading 'v', then enforce PEP-440-ish semver+pre/post forms.
           v="${raw#v}"
           if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][a-zA-Z0-9._-]+)?$ ]]; then
             echo "::error::Invalid version format: $raw"
@@ -40,7 +38,6 @@ jobs:
           fi
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "branch=bump/unifictl-$v" >> "$GITHUB_OUTPUT"
-          echo "Resolved version: $v"
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -62,19 +59,16 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
-        with:
-          python-version: "3.13"
-          enable-cache: false
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
 
       - name: Wait for PyPI simple index to publish new version
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          # The JSON API published synchronously (the previous step proved
-          # the release exists), but uv resolves against the /simple/ index,
-          # served via Fastly and lagging by tens of seconds on first read.
+          # uv/pip resolve against the /simple/ index, served via Fastly and
+          # lagging the JSON API by tens of seconds on first read.
           for i in $(seq 1 30); do
             if curl -sfH 'Cache-Control: no-cache' \
                  "https://pypi.org/simple/unifictl/" \
@@ -87,184 +81,67 @@ jobs:
           echo "::error::unifictl-${VERSION} not visible on PyPI simple index after 120s"
           exit 1
 
-      - name: Generate resource blocks
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          uv venv /tmp/venv --python 3.13
-          uv pip install --python /tmp/venv/bin/python \
-            "homebrew-pypi-poet" "setuptools<80" "unifictl==${VERSION}"
-          /tmp/venv/bin/poet -r unifictl > /tmp/resources-raw.rb
-          # Strip the (incorrect) unifictl self-resource — it's the head
-          # `url`/`sha256`, not a resource — then normalize the one
-          # capitalized name poet emits (Pygments -> pygments). unifictl has
-          # only pure-Python / simple-wheel deps, so unlike jobhound there
-          # are no C-extension resources to exclude.
-          #
-          # After matching `  end`, swallow the trailing blank line so the
-          # resource-region regex in the next step (which uses `\n\n?`) sees
-          # exactly one blank line between blocks.
-          awk '
-            /^  resource "unifictl" do$/ { skip = 1; next }
-            skip && /^  end$/ { skip = 2; next }
-            skip == 2 && /^$/ { skip = 0; next }
-            skip { next }
-            { print }
-          ' /tmp/resources-raw.rb \
-            | sed -e 's/resource "Pygments"/resource "pygments"/' \
-            > /tmp/resources.rb
-          echo "Generated $(grep -c '^  resource ' /tmp/resources.rb) resource blocks"
-
-      - name: Patch Formula/unifictl.rb
-        env:
-          NEW_URL: ${{ steps.sdist.outputs.url }}
-          NEW_SHA: ${{ steps.sdist.outputs.sha }}
-        run: |
-          set -euo pipefail
-          python3 << 'PY'
-          import os, re
-          new_url = os.environ["NEW_URL"]
-          new_sha = os.environ["NEW_SHA"]
-          resources = open("/tmp/resources.rb").read().rstrip() + "\n"
-
-          formula = open("Formula/unifictl.rb").read()
-          formula, n = re.subn(r'^(  url )"[^"]+"', f'\\1"{new_url}"', formula, count=1, flags=re.M)
-          assert n == 1, "couldn't find head url line"
-          formula, n = re.subn(r'^(  sha256 )"[^"]+"', f'\\1"{new_sha}"', formula, count=1, flags=re.M)
-          assert n == 1, "couldn't find head sha256 line"
-          # Replace the contiguous run of `  resource "..." do ... end` blocks.
-          pattern = re.compile(
-              r'(?:  resource "[^"]+" do\n(?:[^\n]*\n)*?  end\n\n?)+',
-          )
-          formula, n = pattern.subn(resources, formula, count=1)
-          assert n == 1, "couldn't find resource block region"
-          open("Formula/unifictl.rb", "w").write(formula)
-          PY
-          echo "::group::patched formula (head)"
-          head -20 Formula/unifictl.rb
-          echo "::endgroup::"
-          # Snapshot outside the workspace: later brew commands trigger an
-          # implicit `brew update` that git-resets every tap (including the
-          # symlinked workspace), which would otherwise revert this patch.
-          cp Formula/unifictl.rb /tmp/patched-formula.rb
-
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-28
-
       - name: Tap this checkout as yo61/tap
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
           rm -rf "$tap_dir"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
 
-      - name: brew audit --strict --new
+      - name: Bump url/sha256 and regenerate resources
         env:
+          NEW_URL: ${{ steps.sdist.outputs.url }}
+          NEW_SHA: ${{ steps.sdist.outputs.sha }}
+          # Prevent brew's implicit auto-update from git-resetting the
+          # symlinked tap (which would revert our edits).
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           set -euxo pipefail
-          cp /tmp/patched-formula.rb Formula/unifictl.rb
-          brew audit --strict --new yo61/tap/unifictl
+          brew bump-formula-pr --write-only --no-audit \
+            --url="$NEW_URL" --sha256="$NEW_SHA" \
+            yo61/tap/unifictl
+          brew update-python-resources --install-dependencies yo61/tap/unifictl
+          echo "::group::patched formula (head)"
+          head -20 Formula/unifictl.rb
+          echo "::endgroup::"
 
-      - name: brew install + brew test
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-          HOMEBREW_NO_SANDBOX_LINUX: "1"
-        run: |
-          set -euxo pipefail
-          cp /tmp/patched-formula.rb Formula/unifictl.rb
-          brew install --verbose yo61/tap/unifictl
-          brew test yo61/tap/unifictl
-
-      # Mint an App token so the PR is authored by the App (which triggers
-      # downstream `pull_request` workflows, e.g. audit.yaml). The commit
-      # itself is signed via createCommitOnBranch to satisfy the
-      # required_signatures ruleset on main.
-      - id: create_pr_token
+      - name: Mint App token
+        id: app-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
         with:
           client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
-          permission-pull-requests: write
           permission-contents: write
+          permission-pull-requests: write
 
-      - name: Open PR with signed commit
+      - name: Commit and open PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APP_TOKEN: ${{ steps.create_pr_token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           VERSION: ${{ steps.version.outputs.version }}
           BRANCH: ${{ steps.version.outputs.branch }}
         run: |
           set -euo pipefail
-          head_sha=$(git rev-parse origin/main)
-
-          gh api -X POST "repos/$GH_REPO/git/refs" \
-            -f ref="refs/heads/$BRANCH" \
-            -f sha="$head_sha" || true
-
-          test -s /tmp/patched-formula.rb || {
-            echo "::error::patched formula snapshot missing or empty"
+          if git diff --quiet -- Formula/unifictl.rb; then
+            echo "::error::formula unchanged after bump; aborting"
             exit 1
-          }
-          base64 -w0 < /tmp/patched-formula.rb > /tmp/formula.b64
-          headline="chore(unifictl): bump to $VERSION"
-
-          # createCommitOnBranch produces a GitHub-signed commit on the
-          # App's behalf, satisfying the required_signatures ruleset.
-          # shellcheck disable=SC2016 # jq references, not shell expansions.
-          query='mutation($repo: String!, $branch: String!, $sha: GitObjectID!, $content: Base64String!, $headline: String!) {
-            createCommitOnBranch(input: {
-              branch: { repositoryNameWithOwner: $repo, branchName: $branch },
-              message: { headline: $headline },
-              expectedHeadOid: $sha,
-              fileChanges: { additions: [{ path: "Formula/unifictl.rb", contents: $content }] }
-            }) {
-              commit { url }
-            }
-          }'
-          jq -n \
-            --arg query "$query" \
-            --arg repo "$GH_REPO" \
-            --arg branch "$BRANCH" \
-            --arg sha "$head_sha" \
-            --arg headline "$headline" \
-            --rawfile content /tmp/formula.b64 \
-            '{
-              query: $query,
-              variables: {
-                repo: $repo,
-                branch: $branch,
-                sha: $sha,
-                headline: $headline,
-                content: ($content | rtrimstr("\n"))
-              }
-            }' > /tmp/graphql.json
-          gh api graphql --input /tmp/graphql.json
-
-          if ! gh pr view "$BRANCH" >/dev/null 2>&1; then
-            GH_TOKEN="$APP_TOKEN" gh pr create \
-              --base main \
-              --head "$BRANCH" \
-              --title "chore(unifictl): bump to $VERSION" \
-              --body "Automated bump triggered by unifictl's release workflow. Validated locally: brew audit --strict --new + brew install + brew test all pass against this commit."
-          else
-            echo "PR for $BRANCH already exists; skipping create."
           fi
-
-          # Every validation audit.yaml runs on the PR already passed above,
-          # so try `--auto` (queues a squash-merge behind any pending check)
-          # and fall back to an immediate squash-merge when main has no
-          # required checks and GitHub rejects auto-merge as "clean".
-          GH_TOKEN="$APP_TOKEN" gh pr merge "$BRANCH" \
-            --repo "$GH_REPO" \
-            --squash \
-            --delete-branch \
-            --auto \
-            || GH_TOKEN="$APP_TOKEN" gh pr merge "$BRANCH" \
-                 --repo "$GH_REPO" \
-                 --squash \
-                 --delete-branch
+          # Attribute the commit to the App's bot user. Branch is bump/*, not
+          # main, so the required_signatures rule does not apply here; when
+          # pr-pull later lands this on main it pushes as the bypass App.
+          bot_user="${APP_SLUG}[bot]"
+          bot_id=$(gh api "users/${bot_user}" --jq .id)
+          git config user.name "$bot_user"
+          git config user.email "${bot_id}+${bot_user}@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add Formula/unifictl.rb
+          git commit -m "chore(unifictl): bump to $VERSION"
+          git push "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(unifictl): bump to $VERSION" \
+            --body "Automated bump triggered by unifictl's release workflow. tests.yml builds bottles; publish-bottles.yaml runs pr-pull once green."
