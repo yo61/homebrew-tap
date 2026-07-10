@@ -140,7 +140,16 @@ Each unit has one purpose and a well-defined trigger/interface.
 - **Guards (all must hold):**
   - `github.event.workflow_run.conclusion == 'success'`
   - `github.event.workflow_run.event == 'pull_request'`
+  - `github.event.workflow_run.head_repository.full_name == github.repository`
+    — the triggering run must come from a branch in **this** repo, not a fork.
+    `workflow_run` runs privileged in the base repo, and a fork PR's
+    `head_branch` name is attacker-controlled; without this clause a fork could
+    name its branch `bump/x` and reach the write-capable App token. Bump PRs are
+    always same-repo, so this costs the legitimate flow nothing.
   - `github.event.workflow_run.head_branch` starts with `bump/`
+- The `workflow_run` trigger carries a scoped `# zizmor: ignore[dangerous-triggers]`
+  with a justification comment: the trigger is inherent to the design and the
+  same-repo + `bump/` guards make the privileged run safe.
 - **Steps:** mint `SEMANTIC_RELEASE_APP` token → `setup-homebrew` →
   `Homebrew/actions/git-user-config` → resolve the PR number from
   `github.event.workflow_run.pull_requests[0].number` → `brew pr-pull --tap
