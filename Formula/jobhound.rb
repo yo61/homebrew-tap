@@ -7,6 +7,12 @@ class Jobhound < Formula
   sha256 "65b08511900d2034632019e2091c9963ed592e07a1f1ef926b84c4866bf3b2ed"
   license "Apache-2.0"
 
+  bottle do
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.17.0"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "0ff30651210d79940a5430de3202044b674e0213ed99e3478912b948e5b9af2a"
+    sha256 cellar: :any,                 x86_64_linux: "f3ed27b7c2988b806f0a0373956516a1c5be6d9b96f4df51e3d136f817f4ceeb"
+  end
+
   depends_on "cryptography" => :no_linkage
   depends_on "pydantic" => :no_linkage
   depends_on "python@3.13"
