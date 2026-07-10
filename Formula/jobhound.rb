@@ -3,8 +3,8 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/b1/1f/fc380936b4cb584a45ea0a2ea789218c67904fadb6ff284d0c61b9356240/jobhound-0.16.0.tar.gz"
-  sha256 "784ebc0fbf036fead98413b6ca7b0077df10e26953c843cfb39232545daee44b"
+  url "https://files.pythonhosted.org/packages/a1/a2/76515e27f854c3c953f83785dade4f657843d0be036325ffe332d45d05ef/jobhound-0.17.0.tar.gz"
+  sha256 "65b08511900d2034632019e2091c9963ed592e07a1f1ef926b84c4866bf3b2ed"
   license "Apache-2.0"
 
   depends_on "cryptography" => :no_linkage
