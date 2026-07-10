@@ -123,14 +123,19 @@ jobs:
         run: |
           set -euxo pipefail
           cd "$GITHUB_WORKSPACE"
-          git config --global --unset-all "http.https://github.com/.extraheader" 2>/dev/null || true
           url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # Override (empty), not unset, setup-homebrew's global http
+          # Authorization header for just these commands: the token in the URL is
+          # the single Authorization, so no "Duplicate header" 400. Overriding
+          # per-command (rather than unsetting globally) leaves the config for
+          # setup-homebrew's post-cleanup, which otherwise fails.
+          hdr='http.https://github.com/.extraheader='
           # main has advanced past the bump commit's base; replay the bump +
           # bottle commit onto current main (formula is untouched on main, so no
           # conflict), then fast-forward push.
-          git fetch --quiet "$url" main
+          git -c "$hdr" fetch --quiet "$url" main
           git rebase FETCH_HEAD
-          git push "$url" HEAD:main
+          git -c "$hdr" push "$url" HEAD:main
 
       - name: Close the bump PR
         env:
@@ -138,9 +143,14 @@ jobs:
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
+          # Pushing the rebased bottle commit usually content-merges the bump PR
+          # (GitHub marks it merged and deletes the branch). Only act if it is
+          # somehow still open.
           pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$HEAD_BRANCH" \
-                 --state open --json number --jq '.[0].number')
-          if [[ -n "$pr" && "$pr" != "null" ]]; then
+                 --state open --json number --jq '.[0].number // empty')
+          if [[ -n "$pr" ]]; then
             gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --delete-branch \
               --comment "Bottled and landed on main via publish-bottles."
+          else
+            echo "bump PR already merged/closed by the push; nothing to do"
           fi
