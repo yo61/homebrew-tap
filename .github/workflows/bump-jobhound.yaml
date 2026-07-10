@@ -17,12 +17,13 @@ name: Bump jobhound formula
 #     required for the bump to eventually happen.
 #
 # Emergency override: trigger via workflow_dispatch with skip_cooldown=true to
-# ship an urgent fix now. That bypasses the 24h gate AND skips
-# `update-python-resources` (the only step that enforces Homebrew's cooldown),
-# reusing the existing resource stanzas and bumping url/sha256 only. Valid when
-# the fix is in jobhound itself (its dependency set is unchanged). If a
-# *dependency* is what needs replacing, re-resolve resources with uv/pip
-# directly (no Homebrew cooldown) instead of using this override.
+# ship an urgent fix now. Both `brew bump-formula-pr` and
+# `update-python-resources` re-resolve Python resources and so trip the cooldown;
+# the override therefore edits the formula's top-level url/sha256 directly (no
+# brew) and reuses the existing resource stanzas. Valid when the fix is in
+# jobhound itself (its dependency set is unchanged). If a *dependency* is what
+# needs replacing, re-resolve resources with uv/pip directly (no Homebrew
+# cooldown) instead of using this override.
 
 on:
   repository_dispatch:
@@ -132,12 +133,14 @@ jobs:
             echo "ready=true"
           } >> "$GITHUB_OUTPUT"
 
+      # The emergency (skip_resources) path edits url/sha256 directly and needs
+      # no brew, so the brew-prep steps below run only on the normal path.
       - name: Set up Homebrew
-        if: steps.gate.outputs.ready == 'true'
+        if: steps.gate.outputs.ready == 'true' && steps.gate.outputs.skip_resources != 'true'
         uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
 
       - name: Wait for PyPI simple index to publish new version
-        if: steps.gate.outputs.ready == 'true'
+        if: steps.gate.outputs.ready == 'true' && steps.gate.outputs.skip_resources != 'true'
         env:
           VERSION: ${{ steps.gate.outputs.version }}
         run: |
@@ -157,14 +160,14 @@ jobs:
           exit 1
 
       - name: Tap this checkout as yo61/tap
-        if: steps.gate.outputs.ready == 'true'
+        if: steps.gate.outputs.ready == 'true' && steps.gate.outputs.skip_resources != 'true'
         run: |
           set -euo pipefail
           tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
           rm -rf "$tap_dir"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
 
-      - name: Bump url/sha256 and regenerate resources
+      - name: Bump url/sha256 (and regenerate resources on the normal path)
         if: steps.gate.outputs.ready == 'true'
         env:
           NEW_URL: ${{ steps.gate.outputs.url }}
@@ -175,12 +178,23 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           set -euxo pipefail
-          brew bump-formula-pr --write-only --no-audit \
-            --url="$NEW_URL" --sha256="$NEW_SHA" \
-            yo61/tap/jobhound
           if [[ "$SKIP_RESOURCES" == "true" ]]; then
-            echo "skip_cooldown path: reusing existing resource stanzas (url/sha only)"
+            # Emergency path. Both `bump-formula-pr` and `update-python-resources`
+            # re-resolve Python resources, which trips Homebrew's 24h cooldown —
+            # so neither can run here. Rewrite the formula's top-level url/sha256
+            # directly (the first `url`/`sha256` in the file, before any resource
+            # block) and reuse the existing resource stanzas. No brew involved.
+            echo "skip_cooldown path: patching top-level url/sha256 only, reusing resource stanzas"
+            awk -v url="$NEW_URL" -v sha="$NEW_SHA" '
+              !u && $1 == "url"    { print "  url \"" url "\""; u = 1; next }
+              !s && $1 == "sha256" { print "  sha256 \"" sha "\""; s = 1; next }
+              { print }
+            ' Formula/jobhound.rb > Formula/jobhound.rb.tmp
+            mv Formula/jobhound.rb.tmp Formula/jobhound.rb
           else
+            brew bump-formula-pr --write-only --no-audit \
+              --url="$NEW_URL" --sha256="$NEW_SHA" \
+              yo61/tap/jobhound
             # jobhound installs the [mcp] extra; cffi/cryptography/pycparser
             # (brewed cryptography), pydantic/pydantic-core (brewed pydantic),
             # and rpds-py (brewed rpds-py) are provided via depends_on and must
