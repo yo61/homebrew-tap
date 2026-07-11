@@ -80,33 +80,50 @@ jobs:
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euxo pipefail
-          version="${HEAD_BRANCH#bump/jobhound-}"
+
+          # Derive the formula and version from the bump/<formula>-<version>
+          # branch test-bot bottled, so this one workflow publishes whichever
+          # formula was bumped. The job `if:` guard already limits this to
+          # same-repo bump/* branches (only the release App creates them);
+          # validate anyway so a malformed branch can't aim brew at an
+          # unexpected formula path.
+          ref="${HEAD_BRANCH#bump/}"
+          formula="${ref%%-*}"
+          version="${ref#*-}"
+          case "$formula" in
+            jobhound | unifictl) ;;
+            *) echo "::error::unexpected formula '$formula' from branch '$HEAD_BRANCH'"; exit 1 ;;
+          esac
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][a-zA-Z0-9._-]+)?$ ]]; then
+            echo "::error::unexpected version '$version' from branch '$HEAD_BRANCH'"
+            exit 1
+          fi
 
           # setup-homebrew symlinked yo61/tap to this workspace AND hard-reset it
-          # to main (0.16.0). Restore the exact commit test-bot bottled so brew
-          # edits the 0.17.0 formula, not the 0.16.0 on main. The object is
-          # already present from the earlier checkout; fetch it as a fallback.
+          # to main. Restore the exact commit test-bot bottled so brew edits the
+          # bumped formula, not the older version on main. The object is already
+          # present from the earlier checkout; fetch it as a fallback.
           cd "$GITHUB_WORKSPACE"
           git checkout --quiet --force "$HEAD_SHA" 2>/dev/null || {
             git fetch --depth 1 \
               "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" "$HEAD_SHA"
             git checkout --quiet --force "$HEAD_SHA"
           }
-          echo "formula at tested commit: $(grep -m1 'jobhound-[0-9]' Formula/jobhound.rb)"
+          echo "formula at tested commit: $(grep -m1 "${formula}-[0-9]" "Formula/${formula}.rb")"
 
           # Download the bottles test-bot uploaded (App token has actions:read).
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/bottles"
 
           # pr-upload reads *.bottle.json from the cwd (the tap). It uploads the
           # bottles to the release AND commits the bottle block onto HEAD
-          # ("jobhound: add <version> bottle."), so there is nothing to commit
+          # ("<formula>: add <version> bottle."), so there is nothing to commit
           # ourselves — Push to main pushes that commit.
           find "$RUNNER_TEMP/bottles" -name '*.bottle.*' -exec cp {} . \;
           brew pr-upload --verbose \
-            --root-url="https://github.com/${GITHUB_REPOSITORY}/releases/download/jobhound-${version}"
+            --root-url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${formula}-${version}"
           rm -f ./*.bottle.*
 
-          if ! grep -q "bottle do" Formula/jobhound.rb; then
+          if ! grep -q "bottle do" "Formula/${formula}.rb"; then
             echo "::error::no bottle block in formula after pr-upload"
             exit 1
           fi
