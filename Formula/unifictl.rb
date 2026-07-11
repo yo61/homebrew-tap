@@ -7,6 +7,12 @@ class Unifictl < Formula
   sha256 "9d26b38b021068bb2812ef1abee5481caa67b8c45dcf3778882f59934964c61a"
   license "Apache-2.0"
 
+  bottle do
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.3.0"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "515ee165e38b0b413f839d6d2710c2977b7252214e528c55a149b956adb84cb3"
+    sha256 cellar: :any_skip_relocation, x86_64_linux: "a9a4326015642f248b844b2e6c19f9ffd41af1ba2015a7f8c4fb78b1dacb8d12"
+  end
+
   depends_on "python@3.13"
 
   resource "anyio" do
