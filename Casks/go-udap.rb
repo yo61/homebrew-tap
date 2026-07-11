@@ -51,5 +51,4 @@ cask "go-udap" do
   end
 
   # No zap stanza required
-
 end
