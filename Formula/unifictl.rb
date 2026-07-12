@@ -3,8 +3,8 @@ class Unifictl < Formula
 
   desc "Imperative UniFi homelab actions beyond the Integration API"
   homepage "https://github.com/yo61/unifictl"
-  url "https://files.pythonhosted.org/packages/3c/e3/8f0832046845c6b9cd133dac9de94790bf225743ba45cd81eb98aaf4c1a2/unifictl-0.3.0.tar.gz"
-  sha256 "9d26b38b021068bb2812ef1abee5481caa67b8c45dcf3778882f59934964c61a"
+  url "https://files.pythonhosted.org/packages/94/17/1ddc869a792d740a5396da60f60af6a9b11f5833a75e4944d60d35571a83/unifictl-0.3.1.tar.gz"
+  sha256 "ac6da00031579db1adf81ed13223b4f2a09bc16a55be390172a82ccf09193cc0"
   license "Apache-2.0"
 
   bottle do
@@ -114,6 +114,7 @@ class Unifictl < Formula
     url "https://files.pythonhosted.org/packages/bf/d0/bbe05a15347538aaf9fa5b51ac3b97075dfb834931fcb77d81fbdb69e8f6/xdg_base_dirs-6.0.2.tar.gz"
     sha256 "950504e14d27cf3c9cb37744680a43bf0ac42efefc4ef4acf98dc736cab2bced"
   end
+
   def install
     virtualenv_install_with_resources
   end
