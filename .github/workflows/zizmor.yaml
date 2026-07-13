@@ -1,9 +1,19 @@
 name: zizmor
 
+# zizmor only analyses workflow/action definitions, so only run when one
+# changes. The tap's routine traffic — formula bumps and the bottle commits
+# publish-bottles.yaml pushes to main — never touches .github, so an unfiltered
+# trigger just re-scans an unchanged directory to the same result. Safe to skip:
+# main's ruleset requires no status checks, and the publish pipeline gates on
+# the brew test-bot workflow_run, not on zizmor.
 on:
   pull_request:
+    paths:
+      - .github/workflows/**
   push:
     branches: [main]
+    paths:
+      - .github/workflows/**
 
 permissions:
   contents: read
