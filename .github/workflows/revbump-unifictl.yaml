@@ -1,0 +1,26 @@
+name: Revision-bump unifictl
+
+# Thin caller: dispatch a Homebrew revision bump for a human-edited unifictl
+# formula on `source-ref`. See revbump.yaml for the mechanics.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source-ref:
+        description: "Branch holding the unifictl formula edit"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  revbump:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/revbump.yaml
+    secrets:
+      SEMANTIC_RELEASE_APP_CLIENT_ID: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
+      SEMANTIC_RELEASE_APP_PRIVATE_KEY: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
+    with:
+      formula: unifictl
+      source-ref: ${{ github.event.inputs.source-ref }}
