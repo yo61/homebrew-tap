@@ -9,9 +9,9 @@ class Unifictl < Formula
   revision 2
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.4.0"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "61d244fe0f85e89afa7f227b988b8e839c09c43ce88584f55181b9464608b4ba"
-    sha256 cellar: :any_skip_relocation, x86_64_linux: "2d3e945d6cf96797781a6872c9e113780aae4b491cd6112a4f2b882825965f46"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.4.0_2"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "a3918ca6b1770dbda4d3429c3d64064ebde99f635307db803cb9749561af9bd6"
+    sha256 cellar: :any_skip_relocation, x86_64_linux: "86893ca2289550c97961ed11214f1ff378fb001ba31734404690897deafdf399"
   end
 
   depends_on "python@3.13"
