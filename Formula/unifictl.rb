@@ -3,8 +3,8 @@ class Unifictl < Formula
 
   desc "Imperative UniFi homelab actions beyond the Integration API"
   homepage "https://github.com/yo61/unifictl"
-  url "https://files.pythonhosted.org/packages/94/17/1ddc869a792d740a5396da60f60af6a9b11f5833a75e4944d60d35571a83/unifictl-0.3.1.tar.gz"
-  sha256 "ac6da00031579db1adf81ed13223b4f2a09bc16a55be390172a82ccf09193cc0"
+  url "https://files.pythonhosted.org/packages/eb/4e/89a0ee397750f6c7b9e5be9afde4e49425f5e461cab057dff5728570505f/unifictl-0.4.0.tar.gz"
+  sha256 "594735780ef074c91539d6d5b703e24485e0ecfbf734c931aa44102f9bbee07d"
   license "Apache-2.0"
 
   bottle do
@@ -100,9 +100,9 @@ class Unifictl < Formula
     sha256 "a1196fdddf1e364b02ec68a05e8ff8f6914fee10fbca2e6b6735f166bb0da8d4"
   end
 
-  resource "tomli-w" do
-    url "https://files.pythonhosted.org/packages/19/75/241269d1da26b624c0d5e110e8149093c759b7a286138f4efd61a60e75fe/tomli_w-1.2.0.tar.gz"
-    sha256 "2dd14fac5a47c27be9cd4c976af5a12d87fb1f0b4512f81d69cce3b35ae25021"
+  resource "tomlkit" do
+    url "https://files.pythonhosted.org/packages/51/db/03eaf4331631ef6b27d6e3c9b68c54dc6f0d63d87201fed600cc409307fd/tomlkit-0.15.0.tar.gz"
+    sha256 "7d1a9ecba3086638211b13814ea79c90dd54dd11993564376f3aa92271f5c7a3"
   end
 
   resource "wcwidth" do
