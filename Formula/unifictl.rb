@@ -6,6 +6,7 @@ class Unifictl < Formula
   url "https://files.pythonhosted.org/packages/eb/4e/89a0ee397750f6c7b9e5be9afde4e49425f5e461cab057dff5728570505f/unifictl-0.4.0.tar.gz"
   sha256 "594735780ef074c91539d6d5b703e24485e0ecfbf734c931aa44102f9bbee07d"
   license "Apache-2.0"
+  revision 1
 
   bottle do
     root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.4.0"
@@ -117,9 +118,15 @@ class Unifictl < Formula
 
   def install
     virtualenv_install_with_resources
+
+    # `unifictl completion <shell>` takes the shell as a positional arg.
+    # Omitting `shell_parameter_format:` (the default `nil`) passes the
+    # bare shell name positionally — exactly what unifictl expects.
+    generate_completions_from_executable(bin/"unifictl", "completion")
   end
 
   test do
     assert_equal version.to_s, shell_output("#{bin}/unifictl --version").strip
+    assert_match "#compdef unifictl", shell_output("#{bin}/unifictl completion zsh")
   end
 end
