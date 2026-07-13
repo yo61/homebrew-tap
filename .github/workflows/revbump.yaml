@@ -1,0 +1,110 @@
+name: Revision bump
+
+# Ship a formula-source change that does NOT change the upstream PyPI version
+# (e.g. a new `generate_completions_from_executable` line): bump Homebrew
+# `revision`, open a bump/<formula>-<version> PR, and let tests.yaml +
+# publish-bottles.yaml bottle, sign, and squash-merge it.
+#
+# The substantive formula edit is authored by a human on `source-ref`; this
+# workflow only sets `revision` (main's revision + 1) and opens the PR. The
+# release tag / root_url stay <formula>-<version> — revision bottles (0.4.0_1)
+# coexist in the existing version's release.
+
+on:
+  workflow_call:
+    inputs:
+      formula:
+        description: "Formula name (Formula/<formula>.rb)"
+        required: true
+        type: string
+      source-ref:
+        description: "Branch holding the human's formula edit"
+        required: true
+        type: string
+    secrets:
+      SEMANTIC_RELEASE_APP_CLIENT_ID:
+        required: true
+      SEMANTIC_RELEASE_APP_PRIVATE_KEY:
+        required: true
+
+permissions: {}
+
+jobs:
+  revbump:
+    name: Revision-bump ${{ inputs.formula }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ inputs.source-ref }}
+          persist-credentials: false
+
+      - name: Mint App token
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
+        with:
+          client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Set revision and derive branch
+        id: rev
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          FORMULA: ${{ inputs.formula }}
+        run: |
+          set -euo pipefail
+          f="Formula/${FORMULA}.rb"
+
+          # Upstream version from the sdist url (same parse as bump.yaml).
+          current_file=$(grep -oE "${FORMULA}-[0-9][^\"/]*\.tar\.gz" "$f" | head -1)
+          version="${current_file#"${FORMULA}"-}"
+          version="${version%.tar.gz}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][A-Za-z0-9._-]+)?$ ]]; then
+            echo "::error::could not parse a valid version from $f (got '$version')"
+            exit 1
+          fi
+
+          # Next revision = (revision on main) + 1. Absent on main => 0.
+          main_content=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${f}?ref=main" --jq '.content' | base64 -d)
+          main_rev=$(printf '%s\n' "$main_content" | grep -oE '^  revision [0-9]+' | grep -oE '[0-9]+$' || echo 0)
+          new_rev=$((main_rev + 1))
+
+          # Set (not increment) the workspace revision, so re-runs are idempotent
+          # regardless of what source-ref carries.
+          if grep -qE '^  revision [0-9]+' "$f"; then
+            sed -i -E "s/^  revision [0-9]+/  revision ${new_rev}/" "$f"
+          else
+            awk -v rev="  revision ${new_rev}" '
+              { print }
+              /^  license / && !done { print rev; done=1 }
+            ' "$f" > "$f.tmp"
+            mv "$f.tmp" "$f"
+          fi
+
+          branch="bump/${FORMULA}-${version}"
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${branch}" >/dev/null 2>&1; then
+            echo "::error::branch ${branch} already exists (a PR is already open)"
+            exit 1
+          fi
+
+          {
+            echo "version=$version"
+            echo "revision=$new_rev"
+            echo "branch=$branch"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open the revision-bump PR
+        uses: ./.github/actions/commit-formula-pr
+        with:
+          formula: ${{ inputs.formula }}
+          branch: ${{ steps.rev.outputs.branch }}
+          token: ${{ steps.app-token.outputs.token }}
+          commit-headline: "chore(${{ inputs.formula }}): revision ${{ steps.rev.outputs.revision }}"
+          pr-title: "chore(${{ inputs.formula }}): revision ${{ steps.rev.outputs.revision }}"
+          pr-body: "Revision bump (upstream ${{ steps.rev.outputs.version }} unchanged). tests.yaml builds bottles; publish-bottles.yaml adds the bottle and squash-merges once green."
