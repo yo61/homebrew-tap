@@ -1,17 +1,7 @@
 name: Bump unifictl formula
 
-# Bumps the unifictl formula to a new PyPI release the moment it publishes, then
-# opens a bump/* PR that tests.yaml bottles and publish-bottles.yaml pr-pulls.
-#
-# Homebrew's `update-python-resources --ignore-main-package-cooldown`
-# (Homebrew/brew#23072) exempts unifictl's *own* package (a third-party tap)
-# from the 24h release cooldown while still cooling every dependency, so a fresh
-# release is resolved immediately and safely. The flag needs Homebrew from
-# 2026-07-13 or later, which Homebrew/actions/setup-homebrew provides.
-#
-# A failed bump is not retried automatically — re-run via workflow_dispatch. A
-# bump legitimately fails when the release needs a dependency published within
-# the last 24h, which is correctly still cooled.
+# Thin caller: wires unifictl's release triggers to the reusable bump.yaml.
+# See bump.yaml for the mechanics (cooldown flag, tap symlink, PR open).
 
 on:
   repository_dispatch:
@@ -27,155 +17,16 @@ permissions: {}
 
 jobs:
   bump:
-    name: Bump unifictl
-    runs-on: ubuntu-latest
     permissions:
       contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Resolve target version
-        id: gate
-        env:
-          DISPATCH_VERSION: ${{ github.event.client_payload.version }}
-          INPUT_VERSION: ${{ github.event.inputs.version }}
-        run: |
-          set -euo pipefail
-
-          # Target version: explicit input/dispatch payload, else latest on PyPI.
-          raw="${DISPATCH_VERSION:-${INPUT_VERSION:-}}"
-          if [[ -z "$raw" ]]; then
-            raw=$(curl -fsSL "https://pypi.org/pypi/unifictl/json" | jq -r '.info.version')
-            echo "manual run: latest unifictl on PyPI is $raw"
-          fi
-          v="${raw#v}"
-          if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][a-zA-Z0-9._-]+)?$ ]]; then
-            echo "::error::Invalid version format: $raw"
-            exit 1
-          fi
-
-          # Version metadata (also supplies url/sha for the bump). Also gates on
-          # PyPI's JSON API having the release — update-python-resources resolves
-          # the exempt main package via that same JSON endpoint.
-          if ! ver_json=$(curl -fsSL "https://pypi.org/pypi/unifictl/${v}/json"); then
-            echo "unifictl==$v is not on PyPI yet; nothing to do"
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          url=$(jq -r '.urls[] | select(.packagetype == "sdist") | .url' <<<"$ver_json")
-          sha=$(jq -r '.urls[] | select(.packagetype == "sdist") | .digests.sha256' <<<"$ver_json")
-          if [[ -z "$url" || -z "$sha" || "$url" == "null" || "$sha" == "null" ]]; then
-            echo "::error::no sdist found on PyPI for unifictl==$v"
-            exit 1
-          fi
-
-          # Already current? Avoid churning a no-op PR.
-          current_file=$(grep -oE 'unifictl-[0-9][^"/]*\.tar\.gz' Formula/unifictl.rb | head -1)
-          current="${current_file#unifictl-}"
-          current="${current%.tar.gz}"
-          if [[ "$current" == "$v" ]]; then
-            echo "formula already at $v; nothing to do"
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # A bump PR for this version may already be open from an earlier run.
-          if git ls-remote --exit-code --heads origin "refs/heads/bump/unifictl-$v" >/dev/null 2>&1; then
-            echo "branch bump/unifictl-$v already exists; PR is already open"
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          {
-            echo "version=$v"
-            echo "branch=bump/unifictl-$v"
-            echo "url=$url"
-            echo "sha=$sha"
-            echo "ready=true"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Set up Homebrew
-        if: steps.gate.outputs.ready == 'true'
-        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
-
-      - name: Tap this checkout as yo61/tap
-        if: steps.gate.outputs.ready == 'true'
-        run: |
-          set -euo pipefail
-          tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
-          rm -rf "$tap_dir"
-          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
-
-      - name: Bump url/sha256 and regenerate resources
-        if: steps.gate.outputs.ready == 'true'
-        env:
-          NEW_URL: ${{ steps.gate.outputs.url }}
-          NEW_SHA: ${{ steps.gate.outputs.sha }}
-          # Prevent brew's implicit auto-update from git-resetting the symlinked
-          # tap, which would revert our edits.
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-        run: |
-          set -euxo pipefail
-          # update-python-resources only rewrites resource stanzas, so set the
-          # formula's top-level url/sha256 (the first url/sha256 in the file,
-          # before any resource block) directly first.
-          awk -v url="$NEW_URL" -v sha="$NEW_SHA" '
-            !u && $1 == "url"    { print "  url \"" url "\""; u = 1; next }
-            !s && $1 == "sha256" { print "  sha256 \"" sha "\""; s = 1; next }
-            { print }
-          ' Formula/unifictl.rb > Formula/unifictl.rb.tmp
-          mv Formula/unifictl.rb.tmp Formula/unifictl.rb
-          # unifictl is pure Python with no compiled dependencies, so every
-          # resource is vendored — no --package-name extra and no
-          # --exclude-packages (contrast bump-jobhound.yaml). The cooldown flag
-          # exempts unifictl's just-published release; its dependencies stay cooled.
-          brew update-python-resources --ignore-main-package-cooldown \
-            --install-dependencies yo61/tap/unifictl
-          echo "::group::patched formula (head)"
-          head -20 Formula/unifictl.rb
-          echo "::endgroup::"
-
-      - name: Mint App token
-        if: steps.gate.outputs.ready == 'true'
-        id: app-token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
-        with:
-          client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          permission-contents: write
-          permission-pull-requests: write
-
-      - name: Commit and open PR
-        if: steps.gate.outputs.ready == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
-          VERSION: ${{ steps.gate.outputs.version }}
-          BRANCH: ${{ steps.gate.outputs.branch }}
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- Formula/unifictl.rb; then
-            echo "::error::formula unchanged after bump; aborting"
-            exit 1
-          fi
-          # Attribute the commit to the App's bot user. Branch is bump/*, not
-          # main, so the required_signatures rule does not apply here; when
-          # pr-pull later lands this on main it pushes as the bypass App.
-          bot_user="${APP_SLUG}[bot]"
-          bot_id=$(gh api "users/${bot_user}" --jq .id)
-          git config user.name "$bot_user"
-          git config user.email "${bot_id}+${bot_user}@users.noreply.github.com"
-          git switch -c "$BRANCH"
-          git add Formula/unifictl.rb
-          git commit -m "chore(unifictl): bump to $VERSION"
-          git push "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore(unifictl): bump to $VERSION" \
-            --body "Automated bump triggered by unifictl's release workflow. tests.yaml builds bottles; publish-bottles.yaml runs pr-pull once green."
+    uses: ./.github/workflows/bump.yaml
+    secrets:
+      SEMANTIC_RELEASE_APP_CLIENT_ID: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
+      SEMANTIC_RELEASE_APP_PRIVATE_KEY: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
+    with:
+      formula: unifictl
+      version: ${{ github.event.client_payload.version || github.event.inputs.version }}
+      # unifictl is pure Python with no compiled dependencies, so every resource
+      # is vendored — no package-name extra and no exclude-packages (contrast
+      # bump-jobhound.yaml). The cooldown flag exempts unifictl's just-published
+      # release; its dependencies stay cooled.
