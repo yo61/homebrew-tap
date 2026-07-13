@@ -1,0 +1,74 @@
+name: Commit formula and open PR
+description: >-
+  Create a bump/* branch at main's HEAD, commit the workspace's
+  Formula/<formula>.rb as a GitHub-signed GraphQL commit, and open a PR.
+  The signed commit lets publish-bottles squash-merge onto signature-protected
+  main with no ruleset bypass.
+
+inputs:
+  formula:
+    description: Formula name (Formula/<formula>.rb is committed)
+    required: true
+  branch:
+    description: Branch to create and open the PR from (e.g. bump/unifictl-0.4.0)
+    required: true
+  token:
+    description: App token with contents:write and pull-requests:write
+    required: true
+  commit-headline:
+    description: Commit message headline
+    required: true
+  pr-title:
+    description: Pull request title
+    required: true
+  pr-body:
+    description: Pull request body
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        FORMULA: ${{ inputs.formula }}
+        BRANCH: ${{ inputs.branch }}
+        HEADLINE: ${{ inputs.commit-headline }}
+        PR_TITLE: ${{ inputs.pr-title }}
+        PR_BODY: ${{ inputs.pr-body }}
+      run: |
+        set -euo pipefail
+        if git diff --quiet -- "Formula/${FORMULA}.rb"; then
+          echo "::error::Formula/${FORMULA}.rb unchanged; nothing to commit"
+          exit 1
+        fi
+        # Create the commit through GitHub's GraphQL createCommitOnBranch:
+        # GitHub builds and signs the commit server-side (committer "GitHub",
+        # verified), so the PR carries no "commits must have verified signatures"
+        # block and publish-bottles can squash-merge it onto the signature-
+        # protected main with no ruleset bypass. The Contents REST API does not
+        # sign — only createCommitOnBranch and the web UI do.
+        base_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)
+        # createCommitOnBranch commits onto an existing branch, so create it
+        # (at main's HEAD) first; the mutation then adds the one commit.
+        gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+          -f ref="refs/heads/${BRANCH}" -f sha="$base_sha" >/dev/null
+        jq -nc \
+          --arg repo "$GITHUB_REPOSITORY" \
+          --arg branch "$BRANCH" \
+          --arg oid "$base_sha" \
+          --arg headline "$HEADLINE" \
+          --arg path "Formula/${FORMULA}.rb" \
+          --arg contents "$(base64 -w0 "Formula/${FORMULA}.rb")" \
+          '{query:"mutation($input:CreateCommitOnBranchInput!){createCommitOnBranch(input:$input){commit{oid}}}",
+            variables:{input:{
+              branch:{repositoryNameWithOwner:$repo,branchName:$branch},
+              message:{headline:$headline},
+              expectedHeadOid:$oid,
+              fileChanges:{additions:[{path:$path,contents:$contents}]}}}}' \
+          | gh api graphql --input - >/dev/null
+        gh api -X POST "repos/${GITHUB_REPOSITORY}/pulls" \
+          -f title="$PR_TITLE" \
+          -f head="${BRANCH}" \
+          -f base=main \
+          -f body="$PR_BODY" >/dev/null

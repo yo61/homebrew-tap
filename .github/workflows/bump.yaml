@@ -183,46 +183,13 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - name: Commit via the API and open the PR
+      - name: Commit and open the PR
         if: steps.gate.outputs.ready == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          FORMULA: ${{ inputs.formula }}
-          VERSION: ${{ steps.gate.outputs.version }}
-          BRANCH: ${{ steps.gate.outputs.branch }}
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- "Formula/${FORMULA}.rb"; then
-            echo "::error::formula unchanged after bump; aborting"
-            exit 1
-          fi
-          # Create the commit through GitHub's GraphQL createCommitOnBranch:
-          # GitHub builds and signs the commit server-side (committer "GitHub",
-          # verified), so the bump PR carries no "commits must have verified
-          # signatures" block and publish-bottles can squash-merge it onto the
-          # signature-protected main with no ruleset bypass. The Contents REST API
-          # does not sign — only createCommitOnBranch and the web UI do.
-          base_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)
-          # createCommitOnBranch commits onto an existing branch, so create it
-          # (at main's HEAD) first; the mutation then adds the one bump commit.
-          gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" \
-            -f ref="refs/heads/${BRANCH}" -f sha="$base_sha" >/dev/null
-          jq -nc \
-            --arg repo "$GITHUB_REPOSITORY" \
-            --arg branch "$BRANCH" \
-            --arg oid "$base_sha" \
-            --arg headline "chore(${FORMULA}): bump to ${VERSION}" \
-            --arg path "Formula/${FORMULA}.rb" \
-            --arg contents "$(base64 -w0 "Formula/${FORMULA}.rb")" \
-            '{query:"mutation($input:CreateCommitOnBranchInput!){createCommitOnBranch(input:$input){commit{oid}}}",
-              variables:{input:{
-                branch:{repositoryNameWithOwner:$repo,branchName:$branch},
-                message:{headline:$headline},
-                expectedHeadOid:$oid,
-                fileChanges:{additions:[{path:$path,contents:$contents}]}}}}' \
-            | gh api graphql --input - >/dev/null
-          gh api -X POST "repos/${GITHUB_REPOSITORY}/pulls" \
-            -f title="chore(${FORMULA}): bump to ${VERSION}" \
-            -f head="${BRANCH}" \
-            -f base=main \
-            -f body="Automated bump triggered by ${FORMULA}'s release workflow. tests.yaml builds bottles; publish-bottles.yaml adds the bottle and squash-merges once green." >/dev/null
+        uses: ./.github/actions/commit-formula-pr
+        with:
+          formula: ${{ inputs.formula }}
+          branch: ${{ steps.gate.outputs.branch }}
+          token: ${{ steps.app-token.outputs.token }}
+          commit-headline: "chore(${{ inputs.formula }}): bump to ${{ steps.gate.outputs.version }}"
+          pr-title: "chore(${{ inputs.formula }}): bump to ${{ steps.gate.outputs.version }}"
+          pr-body: "Automated bump triggered by ${{ inputs.formula }}'s release workflow. tests.yaml builds bottles; publish-bottles.yaml adds the bottle and squash-merges once green."
