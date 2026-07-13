@@ -36,9 +36,12 @@ jobs:
     permissions:
       contents: read
     steps:
+      # Check out the default ref (main), so the workspace carries this workflow
+      # and the local commit-formula-pr action. The human's edited formula is
+      # pulled from source-ref as a data file below — source-ref may predate the
+      # action, and we never execute code from it.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
-          ref: ${{ inputs.source-ref }}
           persist-credentials: false
 
       - name: Mint App token
@@ -57,9 +60,17 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           FORMULA: ${{ inputs.formula }}
+          SOURCE_REF: ${{ inputs.source-ref }}
         run: |
           set -euo pipefail
           f="Formula/${FORMULA}.rb"
+
+          # Pull the human-edited formula from source-ref into the workspace
+          # (which is checked out at main). A tmp file avoids truncating the
+          # main copy if the fetch fails under pipefail.
+          tmp=$(mktemp)
+          gh api "repos/${GITHUB_REPOSITORY}/contents/${f}?ref=${SOURCE_REF}" --jq '.content' | base64 -d > "$tmp"
+          mv "$tmp" "$f"
 
           # Upstream version from the sdist url (same parse as bump.yaml).
           current_file=$(grep -oE "${FORMULA}-[0-9][^\"/]*\.tar\.gz" "$f" | head -1)
