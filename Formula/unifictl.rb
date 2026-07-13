@@ -6,12 +6,12 @@ class Unifictl < Formula
   url "https://files.pythonhosted.org/packages/eb/4e/89a0ee397750f6c7b9e5be9afde4e49425f5e461cab057dff5728570505f/unifictl-0.4.0.tar.gz"
   sha256 "594735780ef074c91539d6d5b703e24485e0ecfbf734c931aa44102f9bbee07d"
   license "Apache-2.0"
-  revision 1
+  revision 2
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.4.0_1"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "6d49d223b0818e980a658375fe65e5d95ff256c4f2ad19c4ba6b94daca962c24"
-    sha256 cellar: :any_skip_relocation, x86_64_linux: "e72588f5ad0ca38c8be996c2d80bbc24369c54b923582cbd910b960a6130273d"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.4.0_2"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "a3918ca6b1770dbda4d3429c3d64064ebde99f635307db803cb9749561af9bd6"
+    sha256 cellar: :any_skip_relocation, x86_64_linux: "86893ca2289550c97961ed11214f1ff378fb001ba31734404690897deafdf399"
   end
 
   depends_on "python@3.13"
