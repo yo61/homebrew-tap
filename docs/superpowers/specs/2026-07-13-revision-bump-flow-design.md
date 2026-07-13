@@ -54,8 +54,8 @@ the API and open the PR"* step.
   see the caller's workspace without shuttling file contents through string
   inputs. A composite action runs in-job and shares the workspace — same DRY win,
   correct primitive.
-- **Inputs:** `formula`, `version`, `branch`, `token` (App token), `pr-title`,
-  `pr-body`.
+- **Inputs:** `formula`, `branch`, `token` (App token), `commit-headline`,
+  `pr-title`, `pr-body`. Callers build the headline/title/body strings.
 - **Behavior:** create `branch` at main's HEAD via the git refs API; commit the
   workspace's `Formula/<formula>.rb` with GraphQL `createCommitOnBranch` (GitHub
   signs it, verified); open a PR to `main`.
