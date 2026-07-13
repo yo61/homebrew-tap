@@ -71,9 +71,8 @@ jobs:
           fi
 
           # Next revision = (revision on main) + 1. Absent on main => 0.
-          main_rev=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${f}?ref=main" --jq '.content' \
-            | base64 -d | grep -oE '^  revision [0-9]+' | grep -oE '[0-9]+$' || true)
-          main_rev="${main_rev:-0}"
+          main_content=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${f}?ref=main" --jq '.content' | base64 -d)
+          main_rev=$(printf '%s\n' "$main_content" | grep -oE '^  revision [0-9]+' | grep -oE '[0-9]+$' || echo 0)
           new_rev=$((main_rev + 1))
 
           # Set (not increment) the workspace revision, so re-runs are idempotent
