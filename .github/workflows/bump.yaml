@@ -183,12 +183,10 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - name: Commit and open PR
+      - name: Commit via the API and open the PR
         if: steps.gate.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           FORMULA: ${{ inputs.formula }}
           VERSION: ${{ steps.gate.outputs.version }}
           BRANCH: ${{ steps.gate.outputs.branch }}
@@ -198,19 +196,33 @@ jobs:
             echo "::error::formula unchanged after bump; aborting"
             exit 1
           fi
-          # Attribute the commit to the App's bot user. Branch is bump/*, not
-          # main, so the required_signatures rule does not apply here; when
-          # pr-pull later lands this on main it pushes as the bypass App.
-          bot_user="${APP_SLUG}[bot]"
-          bot_id=$(gh api "users/${bot_user}" --jq .id)
-          git config user.name "$bot_user"
-          git config user.email "${bot_id}+${bot_user}@users.noreply.github.com"
-          git switch -c "$BRANCH"
-          git add "Formula/${FORMULA}.rb"
-          git commit -m "chore(${FORMULA}): bump to $VERSION"
-          git push "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore(${FORMULA}): bump to $VERSION" \
-            --body "Automated bump triggered by ${FORMULA}'s release workflow. tests.yaml builds bottles; publish-bottles.yaml runs pr-pull once green."
+          # Create the commit through GitHub's GraphQL createCommitOnBranch:
+          # GitHub builds and signs the commit server-side (committer "GitHub",
+          # verified), so the bump PR carries no "commits must have verified
+          # signatures" block and publish-bottles can squash-merge it onto the
+          # signature-protected main with no ruleset bypass. The Contents REST API
+          # does not sign — only createCommitOnBranch and the web UI do.
+          base_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)
+          # createCommitOnBranch commits onto an existing branch, so create it
+          # (at main's HEAD) first; the mutation then adds the one bump commit.
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/heads/${BRANCH}" -f sha="$base_sha" >/dev/null
+          jq -nc \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg branch "$BRANCH" \
+            --arg oid "$base_sha" \
+            --arg headline "chore(${FORMULA}): bump to ${VERSION}" \
+            --arg path "Formula/${FORMULA}.rb" \
+            --arg contents "$(base64 -w0 "Formula/${FORMULA}.rb")" \
+            '{query:"mutation($input:CreateCommitOnBranchInput!){createCommitOnBranch(input:$input){commit{oid}}}",
+              variables:{input:{
+                branch:{repositoryNameWithOwner:$repo,branchName:$branch},
+                message:{headline:$headline},
+                expectedHeadOid:$oid,
+                fileChanges:{additions:[{path:$path,contents:$contents}]}}}}' \
+            | gh api graphql --input - >/dev/null
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/pulls" \
+            -f title="chore(${FORMULA}): bump to ${VERSION}" \
+            -f head="${BRANCH}" \
+            -f base=main \
+            -f body="Automated bump triggered by ${FORMULA}'s release workflow. tests.yaml builds bottles; publish-bottles.yaml adds the bottle and squash-merges once green." >/dev/null

@@ -128,46 +128,87 @@ jobs:
             exit 1
           fi
 
-      # Not Homebrew/actions/git-try-push: it inherits the global http
-      # Authorization header setup-homebrew configured AND adds its own, so every
-      # pull/push gets "Duplicate header: Authorization" (400) and it retries
-      # forever. Push manually: drop that extraheader and auth via the token in
-      # the remote URL (as bump-jobhound.yaml does). The App bypasses the
-      # protected main branch, so the unsigned bottle commit lands.
-      - name: Push to main
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          set -euxo pipefail
-          cd "$GITHUB_WORKSPACE"
-          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          # Override (empty), not unset, setup-homebrew's global http
-          # Authorization header for just these commands: the token in the URL is
-          # the single Authorization, so no "Duplicate header" 400. Overriding
-          # per-command (rather than unsetting globally) leaves the config for
-          # setup-homebrew's post-cleanup, which otherwise fails.
-          hdr='http.https://github.com/.extraheader='
-          # main has advanced past the bump commit's base; replay the bump +
-          # bottle commit onto current main (formula is untouched on main, so no
-          # conflict), then fast-forward push.
-          git -c "$hdr" fetch --quiet "$url" main
-          git rebase FETCH_HEAD
-          git -c "$hdr" push "$url" HEAD:main
-
-      - name: Close the bump PR
+      # pr-upload uploaded the bottles to the Release and wrote the `bottle do`
+      # block into the working-tree formula, but its local commit is unsigned and
+      # a direct push to the signature-protected main is disallowed by the
+      # ruleset's pull_request rule once the App bypass is gone. Instead:
+      # re-author the bottled formula as a signed commit on the bump branch via
+      # GraphQL createCommitOnBranch (GitHub signs it, verified), then
+      # squash-merge the PR through the merge API. Both commits are verified, so
+      # the merge satisfies required_signatures and pull_request with no bypass.
+      - name: Commit the bottle and squash-merge the PR
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
-          # Pushing the rebased bottle commit usually content-merges the bump PR
-          # (GitHub marks it merged and deletes the branch). Only act if it is
-          # somehow still open.
-          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$HEAD_BRANCH" \
-                 --state open --json number --jq '.[0].number // empty')
-          if [[ -n "$pr" ]]; then
-            gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --delete-branch \
-              --comment "Bottled and landed on main via publish-bottles."
-          else
-            echo "bump PR already merged/closed by the push; nothing to do"
+          cd "$GITHUB_WORKSPACE"
+          # Re-derive formula/version from the bump/<formula>-<version> branch;
+          # the earlier step already validated their format before we reach here.
+          ref="${HEAD_BRANCH#bump/}"
+          formula="${ref%%-*}"
+          version="${ref#*-}"
+
+          if ! grep -q "bottle do" "Formula/${formula}.rb"; then
+            echo "::error::formula has no bottle block; nothing to publish"
+            exit 1
           fi
+
+          # Signed bottle commit on the bump branch via createCommitOnBranch.
+          # expectedHeadOid ties it to the current branch head: if the head moved
+          # (it must not — only the release App writes it) the mutation fails
+          # closed and main is untouched.
+          head_oid=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${HEAD_BRANCH}" --jq .object.sha)
+          bottle_sha=$(jq -nc \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg branch "$HEAD_BRANCH" \
+            --arg oid "$head_oid" \
+            --arg headline "${formula}: add ${version} bottle." \
+            --arg path "Formula/${formula}.rb" \
+            --arg contents "$(base64 -w0 "Formula/${formula}.rb")" \
+            '{query:"mutation($input:CreateCommitOnBranchInput!){createCommitOnBranch(input:$input){commit{oid}}}",
+              variables:{input:{
+                branch:{repositoryNameWithOwner:$repo,branchName:$branch},
+                message:{headline:$headline},
+                expectedHeadOid:$oid,
+                fileChanges:{additions:[{path:$path,contents:$contents}]}}}}' \
+            | gh api graphql --input - --jq '.data.createCommitOnBranch.commit.oid')
+
+          pr=$(gh pr list --repo "${GITHUB_REPOSITORY}" --head "${HEAD_BRANCH}" \
+                 --state open --json number --jq '.[0].number // empty')
+          if [[ -z "$pr" ]]; then
+            echo "::error::no open bump PR for ${HEAD_BRANCH}"
+            exit 1
+          fi
+
+          # Squash-merge via the merge API: satisfies the pull_request rule (it is
+          # a PR merge) and lands one GitHub-signed commit on main. sha= pins the
+          # merge to the bottle commit we just authored, so a moved head fails
+          # closed and main is untouched (see the head-sha TOCTOU decision).
+          # Retry a few times: GitHub computes PR mergeability asynchronously and
+          # can briefly report the fresh PR as not-yet-mergeable.
+          merged=""
+          for attempt in 1 2 3 4 5; do
+            if gh api -X PUT "repos/${GITHUB_REPOSITORY}/pulls/${pr}/merge" \
+                 -f merge_method=squash \
+                 -f sha="${bottle_sha}" \
+                 -f commit_title="chore(${formula}): release ${version}" \
+                 >/dev/null 2>/tmp/merge_err; then
+              merged=1
+              break
+            fi
+            echo "merge attempt ${attempt} not ready:"
+            cat /tmp/merge_err
+            sleep 5
+          done
+          if [[ -z "$merged" ]]; then
+            echo "::error::squash-merge failed"
+            cat /tmp/merge_err
+            exit 1
+          fi
+
+          # The merge auto-closes the PR. Delete the branch best-effort — the
+          # repo's auto-delete-head-branch may already have removed it (404).
+          gh api -X DELETE \
+            "repos/${GITHUB_REPOSITORY}/git/refs/heads/${HEAD_BRANCH}" \
+            >/dev/null 2>&1 || echo "branch ${HEAD_BRANCH} already deleted"
