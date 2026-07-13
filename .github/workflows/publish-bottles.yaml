@@ -119,8 +119,20 @@ jobs:
           # ("<formula>: add <version> bottle."), so there is nothing to commit
           # ourselves — Push to main pushes that commit.
           find "$RUNNER_TEMP/bottles" -name '*.bottle.*' -exec cp {} . \;
+          # Derive the release tag from the bottle's pkg_version, not the bare
+          # branch version. brew bakes root_url as <formula>-<pkg_version> into
+          # the formula (pkg_version includes any Homebrew `revision`, e.g.
+          # 0.4.0_1), and pr-upload's --root-url only sets the *upload* target.
+          # If we upload to <formula>-<version> while the formula points at
+          # <formula>-<version>_<rev>, a revisioned bottle 404s on install. For a
+          # plain version bump pkg_version == version, so this is a no-op there.
+          pkg_version=$(jq -r '.[].formula.pkg_version' ./*.bottle.json | head -1)
+          if [[ -z "$pkg_version" || "$pkg_version" == "null" ]]; then
+            echo "::error::could not read pkg_version from bottle JSON"
+            exit 1
+          fi
           brew pr-upload --verbose \
-            --root-url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${formula}-${version}"
+            --root-url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${formula}-${pkg_version}"
           rm -f ./*.bottle.*
 
           if ! grep -q "bottle do" "Formula/${formula}.rb"; then
