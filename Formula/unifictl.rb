@@ -117,9 +117,15 @@ class Unifictl < Formula
 
   def install
     virtualenv_install_with_resources
+
+    # `unifictl completion <shell>` takes the shell as a positional arg.
+    # Omitting `shell_parameter_format:` (the default `nil`) passes the
+    # bare shell name positionally — exactly what unifictl expects.
+    generate_completions_from_executable(bin/"unifictl", "completion")
   end
 
   test do
     assert_equal version.to_s, shell_output("#{bin}/unifictl --version").strip
+    assert_match "#compdef unifictl", shell_output("#{bin}/unifictl completion zsh")
   end
 end
