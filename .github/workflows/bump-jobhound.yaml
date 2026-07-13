@@ -1,29 +1,17 @@
 name: Bump jobhound formula
 
-# Bumps the jobhound formula to a new PyPI release, then opens a bump/* PR that
-# tests.yaml bottles and publish-bottles.yaml pr-pulls.
+# Bumps the jobhound formula to a new PyPI release the moment it publishes, then
+# opens a bump/* PR that tests.yaml bottles and publish-bottles.yaml pr-pulls.
 #
-# Homebrew's `update-python-resources` enforces a hardcoded 24h "release
-# cooldown" (RELEASE_COOLDOWN_DAYS = 1) so its resolver ignores PyPI uploads
-# younger than a day — protection against a freshly compromised upstream
-# release. A release therefore cannot be bottled the instant it publishes.
+# Homebrew's `update-python-resources --ignore-main-package-cooldown`
+# (Homebrew/brew#23072) exempts jobhound's *own* package (a third-party tap)
+# from the 24h release cooldown while still cooling every dependency, so a fresh
+# release is resolved immediately and safely. The flag needs Homebrew from
+# 2026-07-13 or later, which Homebrew/actions/setup-homebrew provides.
 #
-# This workflow is self-healing rather than one-shot:
-#   * repository_dispatch (from jobhound's release) and the schedule below both
-#     funnel through the same gate. If the target version is still inside the
-#     24h cooldown, the run is a graceful no-op ("deferring") and the next
-#     scheduled run retries. Once the version is >24h old it lands.
-#   * The schedule discovers the latest PyPI version itself, so no dispatch is
-#     required for the bump to eventually happen.
-#
-# Emergency override: trigger via workflow_dispatch with skip_cooldown=true to
-# ship an urgent fix now. Both `brew bump-formula-pr` and
-# `update-python-resources` re-resolve Python resources and so trip the cooldown;
-# the override therefore edits the formula's top-level url/sha256 directly (no
-# brew) and reuses the existing resource stanzas. Valid when the fix is in
-# jobhound itself (its dependency set is unchanged). If a *dependency* is what
-# needs replacing, re-resolve resources with uv/pip directly (no Homebrew
-# cooldown) instead of using this override.
+# A failed bump is not retried automatically — re-run via workflow_dispatch. A
+# bump legitimately fails when the release needs a dependency published within
+# the last 24h, which is correctly still cooled.
 
 on:
   repository_dispatch:
@@ -34,15 +22,6 @@ on:
         description: "jobhound version to bump to (blank = latest on PyPI)"
         required: false
         type: string
-      skip_cooldown:
-        description: "Emergency: bypass the 24h cooldown (url/sha only, reuses existing resources)"
-        required: false
-        default: false
-        type: boolean
-  schedule:
-    # Catch up on any release still inside the 24h cooldown at dispatch time.
-    # Cheap: a no-op run is a checkout plus one PyPI query.
-    - cron: "17 */6 * * *"
 
 permissions: {}
 
@@ -57,12 +36,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve target version and check cooldown gate
+      - name: Resolve target version
         id: gate
         env:
           DISPATCH_VERSION: ${{ github.event.client_payload.version }}
           INPUT_VERSION: ${{ github.event.inputs.version }}
-          SKIP_COOLDOWN: ${{ github.event.inputs.skip_cooldown }}
         run: |
           set -euo pipefail
 
@@ -70,7 +48,7 @@ jobs:
           raw="${DISPATCH_VERSION:-${INPUT_VERSION:-}}"
           if [[ -z "$raw" ]]; then
             raw=$(curl -fsSL "https://pypi.org/pypi/jobhound/json" | jq -r '.info.version')
-            echo "scheduled/auto run: latest jobhound on PyPI is $raw"
+            echo "manual run: latest jobhound on PyPI is $raw"
           fi
           v="${raw#v}"
           if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][a-zA-Z0-9._-]+)?$ ]]; then
@@ -78,7 +56,9 @@ jobs:
             exit 1
           fi
 
-          # Version metadata (also supplies url/sha for the bump).
+          # Version metadata (also supplies url/sha for the bump). Also gates on
+          # PyPI's JSON API having the release — update-python-resources resolves
+          # the exempt main package via that same JSON endpoint.
           if ! ver_json=$(curl -fsSL "https://pypi.org/pypi/jobhound/${v}/json"); then
             echo "jobhound==$v is not on PyPI yet; nothing to do"
             echo "ready=false" >> "$GITHUB_OUTPUT"
@@ -91,7 +71,7 @@ jobs:
             exit 1
           fi
 
-          # Already current? Avoid churning a no-op PR every scheduled run.
+          # Already current? Avoid churning a no-op PR.
           current_file=$(grep -oE 'jobhound-[0-9][^"/]*\.tar\.gz' Formula/jobhound.rb | head -1)
           current="${current_file#jobhound-}"
           current="${current%.tar.gz}"
@@ -108,102 +88,57 @@ jobs:
             exit 0
           fi
 
-          # Cooldown gate. The emergency override skips both the wait and the
-          # resource re-resolution that enforces it.
-          skip_resources=false
-          if [[ "$SKIP_COOLDOWN" == "true" ]]; then
-            echo "::warning::skip_cooldown set — bypassing the 24h delay and reusing existing resource stanzas"
-            skip_resources=true
-          else
-            upload=$(jq -r '[.urls[].upload_time_iso_8601] | min' <<<"$ver_json")
-            age=$(( $(date -u +%s) - $(date -u -d "$upload" +%s) ))
-            if (( age < 86400 )); then
-              echo "jobhound==$v uploaded $((age / 3600))h ago — inside Homebrew's 24h cooldown; deferring to the next scheduled run"
-              echo "ready=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-
           {
             echo "version=$v"
             echo "branch=bump/jobhound-$v"
             echo "url=$url"
             echo "sha=$sha"
-            echo "skip_resources=$skip_resources"
             echo "ready=true"
           } >> "$GITHUB_OUTPUT"
 
-      # The emergency (skip_resources) path edits url/sha256 directly and needs
-      # no brew, so the brew-prep steps below run only on the normal path.
       - name: Set up Homebrew
-        if: steps.gate.outputs.ready == 'true' && steps.gate.outputs.skip_resources != 'true'
+        if: steps.gate.outputs.ready == 'true'
         uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
 
-      - name: Wait for PyPI simple index to publish new version
-        if: steps.gate.outputs.ready == 'true' && steps.gate.outputs.skip_resources != 'true'
-        env:
-          VERSION: ${{ steps.gate.outputs.version }}
-        run: |
-          set -euo pipefail
-          # uv/pip resolve against the /simple/ index, served via Fastly and
-          # lagging the JSON API by tens of seconds on first read.
-          for i in $(seq 1 30); do
-            if curl -sfH 'Cache-Control: no-cache' \
-                 "https://pypi.org/simple/jobhound/" \
-                 | grep -q "jobhound-${VERSION}\."; then
-              echo "jobhound-${VERSION} visible on simple index (attempt $i)"
-              exit 0
-            fi
-            sleep 4
-          done
-          echo "::error::jobhound-${VERSION} not visible on PyPI simple index after 120s"
-          exit 1
-
       - name: Tap this checkout as yo61/tap
-        if: steps.gate.outputs.ready == 'true' && steps.gate.outputs.skip_resources != 'true'
+        if: steps.gate.outputs.ready == 'true'
         run: |
           set -euo pipefail
           tap_dir="$(brew --repository)/Library/Taps/yo61/homebrew-tap"
           rm -rf "$tap_dir"
           ln -s "$GITHUB_WORKSPACE" "$tap_dir"
 
-      - name: Bump url/sha256 (and regenerate resources on the normal path)
+      - name: Bump url/sha256 and regenerate resources
         if: steps.gate.outputs.ready == 'true'
         env:
           NEW_URL: ${{ steps.gate.outputs.url }}
           NEW_SHA: ${{ steps.gate.outputs.sha }}
-          SKIP_RESOURCES: ${{ steps.gate.outputs.skip_resources }}
-          # Prevent brew's implicit auto-update from git-resetting the
-          # symlinked tap (which would revert our edits).
+          # Prevent brew's implicit auto-update from git-resetting the symlinked
+          # tap, which would revert our edits.
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           set -euxo pipefail
-          if [[ "$SKIP_RESOURCES" == "true" ]]; then
-            # Emergency path. Both `bump-formula-pr` and `update-python-resources`
-            # re-resolve Python resources, which trips Homebrew's 24h cooldown —
-            # so neither can run here. Rewrite the formula's top-level url/sha256
-            # directly (the first `url`/`sha256` in the file, before any resource
-            # block) and reuse the existing resource stanzas. No brew involved.
-            echo "skip_cooldown path: patching top-level url/sha256 only, reusing resource stanzas"
-            awk -v url="$NEW_URL" -v sha="$NEW_SHA" '
-              !u && $1 == "url"    { print "  url \"" url "\""; u = 1; next }
-              !s && $1 == "sha256" { print "  sha256 \"" sha "\""; s = 1; next }
-              { print }
-            ' Formula/jobhound.rb > Formula/jobhound.rb.tmp
-            mv Formula/jobhound.rb.tmp Formula/jobhound.rb
-          else
-            brew bump-formula-pr --write-only --no-audit \
-              --url="$NEW_URL" --sha256="$NEW_SHA" \
-              yo61/tap/jobhound
-            # jobhound installs the [mcp] extra; cffi/cryptography/pycparser
-            # (brewed cryptography), pydantic/pydantic-core (brewed pydantic),
-            # and rpds-py (brewed rpds-py) are provided via depends_on and must
-            # NOT be vendored as resources (that would drag a Rust toolchain in).
-            brew update-python-resources --install-dependencies \
-              --package-name "jobhound[mcp]" \
-              --exclude-packages "cffi,cryptography,pycparser,pydantic,pydantic-core,rpds-py" \
-              yo61/tap/jobhound
-          fi
+          # update-python-resources only rewrites resource stanzas, so set the
+          # formula's top-level url/sha256 (the first url/sha256 in the file,
+          # before any resource block) directly first.
+          awk -v url="$NEW_URL" -v sha="$NEW_SHA" '
+            !u && $1 == "url"    { print "  url \"" url "\""; u = 1; next }
+            !s && $1 == "sha256" { print "  sha256 \"" sha "\""; s = 1; next }
+            { print }
+          ' Formula/jobhound.rb > Formula/jobhound.rb.tmp
+          mv Formula/jobhound.rb.tmp Formula/jobhound.rb
+          # jobhound installs the [mcp] extra; cffi/cryptography/pycparser
+          # (brewed cryptography), pydantic/pydantic-core (brewed pydantic),
+          # and rpds-py (brewed rpds-py) are provided via depends_on and must
+          # NOT be vendored as resources (that would drag a Rust toolchain in).
+          # The cooldown flag preserves the [mcp] extra on the direct-URL
+          # reference, so the extra's own resources still resolve; jobhound's
+          # just-published release is exempt while its dependencies stay cooled.
+          brew update-python-resources --ignore-main-package-cooldown \
+            --install-dependencies \
+            --package-name "jobhound[mcp]" \
+            --exclude-packages "cffi,cryptography,pycparser,pydantic,pydantic-core,rpds-py" \
+            yo61/tap/jobhound
           echo "::group::patched formula (head)"
           head -20 Formula/jobhound.rb
           echo "::endgroup::"
