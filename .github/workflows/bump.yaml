@@ -147,10 +147,16 @@ jobs:
           set -euxo pipefail
           # update-python-resources only rewrites resource stanzas, so set the
           # formula's top-level url/sha256 (the first url/sha256 in the file,
-          # before any resource block) directly first.
+          # before any resource block) directly first. Also drop any top-level
+          # `revision` line: a Homebrew revision numbers rebuilds of a single
+          # version, so bumping to a new upstream version resets it to 0 — which
+          # in Homebrew means no `revision` line at all (`brew audit` rejects an
+          # explicit `revision 0`). Carried over from an earlier revbump it would
+          # fail audit on the bumped formula ("`revision N` should be removed").
           awk -v url="$NEW_URL" -v sha="$NEW_SHA" '
-            !u && $1 == "url"    { print "  url \"" url "\""; u = 1; next }
-            !s && $1 == "sha256" { print "  sha256 \"" sha "\""; s = 1; next }
+            !u && $1 == "url"      { print "  url \"" url "\""; u = 1; next }
+            !s && $1 == "sha256"   { print "  sha256 \"" sha "\""; s = 1; next }
+            !r && $1 == "revision" { r = 1; next }
             { print }
           ' "Formula/${FORMULA}.rb" > "Formula/${FORMULA}.rb.tmp"
           mv "Formula/${FORMULA}.rb.tmp" "Formula/${FORMULA}.rb"
