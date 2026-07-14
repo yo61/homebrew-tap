@@ -6,7 +6,6 @@ class Unifictl < Formula
   url "https://files.pythonhosted.org/packages/73/51/ad3dda447a753e2ca8adb7692e59d975aac6289e26f301159fe19d13809b/unifictl-0.5.0.tar.gz"
   sha256 "37857fdd7595e0cf823855333956e7f95b5417d9c4a51f95dc7e78f3184ee54f"
   license "Apache-2.0"
-  revision 2
 
   bottle do
     root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.4.0_2"
