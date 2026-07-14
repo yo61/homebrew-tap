@@ -3,8 +3,8 @@ class Unifictl < Formula
 
   desc "Imperative UniFi homelab actions beyond the Integration API"
   homepage "https://github.com/yo61/unifictl"
-  url "https://files.pythonhosted.org/packages/eb/4e/89a0ee397750f6c7b9e5be9afde4e49425f5e461cab057dff5728570505f/unifictl-0.4.0.tar.gz"
-  sha256 "594735780ef074c91539d6d5b703e24485e0ecfbf734c931aa44102f9bbee07d"
+  url "https://files.pythonhosted.org/packages/73/51/ad3dda447a753e2ca8adb7692e59d975aac6289e26f301159fe19d13809b/unifictl-0.5.0.tar.gz"
+  sha256 "37857fdd7595e0cf823855333956e7f95b5417d9c4a51f95dc7e78f3184ee54f"
   license "Apache-2.0"
   revision 2
 
@@ -17,8 +17,8 @@ class Unifictl < Formula
   depends_on "python@3.13"
 
   resource "anyio" do
-    url "https://files.pythonhosted.org/packages/3b/72/5562aabb8dd7181e8e860622a38bea08d17842b99ecd4c91f84ac95251b0/anyio-4.14.1.tar.gz"
-    sha256 "8d648a3544c1a700e3ff78615cd679e4c5c3f149904287e73687b2596963629e"
+    url "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz"
+    sha256 "cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f"
   end
 
   resource "attrs" do
