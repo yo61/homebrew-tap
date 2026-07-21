@@ -37,7 +37,7 @@ jobs:
       contents: read
     steps:
       # Check out the default ref (main), so the workspace carries this workflow
-      # and the local commit-formula-pr action. The human's edited formula is
+      # and the local commit-recipe-pr action. The human's edited formula is
       # pulled from source-ref as a data file below — source-ref may predate the
       # action, and we never execute code from it.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -111,9 +111,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Open the revision-bump PR
-        uses: ./.github/actions/commit-formula-pr
+        uses: ./.github/actions/commit-recipe-pr
         with:
-          formula: ${{ inputs.formula }}
+          file-path: Formula/${{ inputs.formula }}.rb
           branch: ${{ steps.rev.outputs.branch }}
           token: ${{ steps.app-token.outputs.token }}
           commit-headline: "chore(${{ inputs.formula }}): revision ${{ steps.rev.outputs.revision }}"
