@@ -191,9 +191,9 @@ jobs:
 
       - name: Commit and open the PR
         if: steps.gate.outputs.ready == 'true'
-        uses: ./.github/actions/commit-formula-pr
+        uses: ./.github/actions/commit-recipe-pr
         with:
-          formula: ${{ inputs.formula }}
+          file-path: Formula/${{ inputs.formula }}.rb
           branch: ${{ steps.gate.outputs.branch }}
           token: ${{ steps.app-token.outputs.token }}
           commit-headline: "chore(${{ inputs.formula }}): bump to ${{ steps.gate.outputs.version }}"
