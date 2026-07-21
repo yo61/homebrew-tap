@@ -91,6 +91,20 @@ jobs:
             exit 1
           fi
 
+      # GoReleaser's cask template emits a blank line before the closing `end`
+      # (Layout/EmptyLinesAroundBlockBody) when no zap stanza is set, which
+      # brew style rejects. Autocorrect the rendered cask here so the signed PR
+      # lands style-clean instead of failing tests.yaml's --only-tap-syntax gate.
+      - name: Set up Homebrew
+        if: steps.gate.outputs.ready == 'true'
+        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+
+      - name: Normalise cask style
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          brew style --fix Casks/go-udap.rb
+
       - name: Mint App token
         if: steps.gate.outputs.ready == 'true'
         id: app-token
