@@ -42,6 +42,12 @@ jobs:
           set -euo pipefail
           raw="${INPUT_VERSION:-}"
           v="${raw#v}"
+          # Accepts X.Y.Z and pre-releases (X.Y.Z-rc.1). Build-metadata tags
+          # (X.Y.Z+build) are intentionally rejected — go-udap uses release-please,
+          # which only ever emits plain vX.Y.Z, and a '+' in a cask version /
+          # release-download URL is untested surface we deliberately don't carry.
+          # A '+build' tag would fail closed here (visible error, nothing reaches
+          # users), which is the safe outcome for a case that does not occur.
           if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][a-zA-Z0-9._-]+)?$ ]]; then
             echo "::error::Invalid version format: $raw"
             exit 1
