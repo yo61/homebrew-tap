@@ -1,0 +1,100 @@
+name: publish cask
+
+# Squash-merges a cask/* bump PR onto main once brew test-bot is green. Unlike
+# publish-bottles there is no bottle to add: bump-go-udap already authored the
+# cask as a signed commit (createCommitOnBranch), so this only lands that commit
+# via a PR merge — the squash commit is GitHub-signed, satisfying
+# required_signatures and pull_request with no ruleset bypass.
+
+on:
+  workflow_run:
+    # zizmor: ignore[dangerous-triggers]
+    # Safe: this job only runs for same-repo cask/* branches (see the job `if:`),
+    # which only the SEMANTIC_RELEASE_APP creates. Fork PRs fail the
+    # head_repository check and can never reach the write-capable App token.
+    workflows: ["brew test-bot"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'cask/')
+    permissions:
+      contents: read
+    steps:
+      - name: Mint App token
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
+        with:
+          client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Squash-merge the cask PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+
+          # Branch is cask/go-udap-<version>. The cask name go-udap contains a
+          # hyphen, so strip the literal prefix — never split on '-'.
+          if [[ "$HEAD_BRANCH" != cask/go-udap-* ]]; then
+            echo "::error::unexpected cask branch '$HEAD_BRANCH'"
+            exit 1
+          fi
+          version="${HEAD_BRANCH#cask/go-udap-}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][a-zA-Z0-9._-]+)?$ ]]; then
+            echo "::error::unexpected version '$version' from branch '$HEAD_BRANCH'"
+            exit 1
+          fi
+
+          # Pin the merge to the current branch head (head-sha TOCTOU guard): if
+          # the head moved — it must not; only the release App writes it — the
+          # merge fails closed and main is untouched.
+          head_oid=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${HEAD_BRANCH}" --jq .object.sha)
+          pr=$(gh pr list --repo "${GITHUB_REPOSITORY}" --head "${HEAD_BRANCH}" \
+                 --state open --json number --jq '.[0].number // empty')
+          if [[ -z "$pr" ]]; then
+            echo "::error::no open cask PR for ${HEAD_BRANCH}"
+            exit 1
+          fi
+
+          # Retry: GitHub computes PR mergeability asynchronously and can briefly
+          # report a fresh PR as not-yet-mergeable.
+          merged=""
+          for attempt in 1 2 3 4 5; do
+            if gh api -X PUT "repos/${GITHUB_REPOSITORY}/pulls/${pr}/merge" \
+                 -f merge_method=squash \
+                 -f sha="${head_oid}" \
+                 -f commit_title="chore(go-udap): release cask ${version}" \
+                 >/dev/null 2>/tmp/merge_err; then
+              merged=1
+              break
+            fi
+            echo "merge attempt ${attempt} not ready:"
+            cat /tmp/merge_err
+            sleep 5
+          done
+          if [[ -z "$merged" ]]; then
+            echo "::error::squash-merge failed"
+            cat /tmp/merge_err
+            exit 1
+          fi
+
+          # The merge auto-closes the PR. Delete the branch best-effort — the
+          # repo's auto-delete-head-branch may already have removed it (404).
+          gh api -X DELETE \
+            "repos/${GITHUB_REPOSITORY}/git/refs/heads/${HEAD_BRANCH}" \
+            >/dev/null 2>&1 || echo "branch ${HEAD_BRANCH} already deleted"
