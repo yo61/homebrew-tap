@@ -1,0 +1,109 @@
+name: Bump go-udap cask
+
+# Fetches the cask GoReleaser rendered and attached to a go-udap release, then
+# opens a signed cask/* PR. tests.yaml lints it; publish-cask.yaml squash-merges
+# once green. Triggered by go-udap's release workflow via repository_dispatch
+# (bump-go-udap), or manually with a version (re-run / backfill path).
+#
+# Unlike the formula bumps there is no PyPI resolution and no in-place edit: the
+# rendered cask already carries the version and the four sha256s GoReleaser
+# computed, so the tap just commits it wholesale.
+
+on:
+  repository_dispatch:
+    types: [bump-go-udap]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "go-udap version to bump the cask to (e.g. 2.4.5)"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  bump:
+    name: Bump go-udap cask
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Resolve target version
+        id: gate
+        env:
+          # client_payload.version is attacker-settable via repository_dispatch;
+          # it is read into an env var and regex-validated below before any use.
+          INPUT_VERSION: ${{ github.event.client_payload.version || github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          raw="${INPUT_VERSION:-}"
+          v="${raw#v}"
+          if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.\-][a-zA-Z0-9._-]+)?$ ]]; then
+            echo "::error::Invalid version format: $raw"
+            exit 1
+          fi
+
+          # Already current? Avoid churning a no-op PR.
+          current=$(sed -nE 's/^[[:space:]]*version "([^"]+)".*/\1/p' Casks/go-udap.rb | head -1)
+          if [[ "$current" == "$v" ]]; then
+            echo "cask already at $v; nothing to do"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A bump PR for this version may already be open from an earlier run.
+          if git ls-remote --exit-code --heads origin "refs/heads/cask/go-udap-$v" >/dev/null 2>&1; then
+            echo "branch cask/go-udap-$v already exists; PR is already open"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          {
+            echo "version=$v"
+            echo "branch=cask/go-udap-$v"
+            echo "ready=true"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Fetch the rendered cask from the release
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          V: ${{ steps.gate.outputs.version }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/yo61/go-udap/releases/download/v${V}/go-udap.rb" \
+            -o Casks/go-udap.rb
+          # Sanity: the fetched cask must declare the version we asked for, so a
+          # stale/mismatched asset fails closed rather than opening a wrong PR.
+          got=$(sed -nE 's/^[[:space:]]*version "([^"]+)".*/\1/p' Casks/go-udap.rb | head -1)
+          if [[ "$got" != "$V" ]]; then
+            echo "::error::fetched cask declares version '$got', expected '$V'"
+            exit 1
+          fi
+
+      - name: Mint App token
+        if: steps.gate.outputs.ready == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
+        with:
+          client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Commit and open the PR
+        if: steps.gate.outputs.ready == 'true'
+        uses: ./.github/actions/commit-recipe-pr
+        with:
+          file-path: Casks/go-udap.rb
+          branch: ${{ steps.gate.outputs.branch }}
+          token: ${{ steps.app-token.outputs.token }}
+          commit-headline: "chore(go-udap): bump cask to ${{ steps.gate.outputs.version }}"
+          pr-title: "chore(go-udap): bump cask to ${{ steps.gate.outputs.version }}"
+          pr-body: "Automated cask bump triggered by go-udap's release. tests.yaml lints; publish-cask.yaml squash-merges once green."
