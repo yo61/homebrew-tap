@@ -74,6 +74,14 @@ jobs:
             echo "ready=true"
           } >> "$GITHUB_OUTPUT"
 
+      # Set Homebrew up BEFORE fetching the cask. setup-homebrew registers this
+      # checkout as a tap and hard-resets the working tree to main; running it
+      # after the fetch would discard the freshly-downloaded cask, leaving the
+      # commit step with nothing to commit. Reset a pristine tree here instead.
+      - name: Set up Homebrew
+        if: steps.gate.outputs.ready == 'true'
+        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+
       - name: Fetch the rendered cask from the release
         if: steps.gate.outputs.ready == 'true'
         env:
@@ -95,10 +103,6 @@ jobs:
       # (Layout/EmptyLinesAroundBlockBody) when no zap stanza is set, which
       # brew style rejects. Autocorrect the rendered cask here so the signed PR
       # lands style-clean instead of failing tests.yaml's --only-tap-syntax gate.
-      - name: Set up Homebrew
-        if: steps.gate.outputs.ready == 'true'
-        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
-
       - name: Normalise cask style
         if: steps.gate.outputs.ready == 'true'
         run: |
