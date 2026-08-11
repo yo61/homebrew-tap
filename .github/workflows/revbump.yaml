@@ -40,7 +40,7 @@ jobs:
       # and the local commit-recipe-pr action. The human's edited formula is
       # pulled from source-ref as a data file below — source-ref may predate the
       # action, and we never execute code from it.
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
 
