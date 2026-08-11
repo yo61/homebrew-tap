@@ -3,24 +3,23 @@ cask "go-udap" do
   version "2.4.7"
 
   on_macos do
-    on_intel do
-      sha256 "28d59d0ad89770fb8458b9e28ab1a310f0814233315ffe06d79941e50a526903"
-      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_macos_x86_64.tar.gz"
-    end
     on_arm do
       sha256 "5365314d7a65db49fd2806a3c3c35db0ab700080ad37b94038d36e7e807e81a3"
       url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_macos_arm64.tar.gz"
     end
-  end
-
-  on_linux do
     on_intel do
-      sha256 "d6796c62d1649d1e358f0bede52c194b1d0bd0660621371ed9310b709c33a056"
-      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_linux_x86_64.tar.gz"
+      sha256 "28d59d0ad89770fb8458b9e28ab1a310f0814233315ffe06d79941e50a526903"
+      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_macos_x86_64.tar.gz"
     end
+  end
+  on_linux do
     on_arm do
       sha256 "3b432fa89d0d3120affb9c230c88c8f1fbf1d1751002fc4ceab4a4ffb09a9023"
       url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_linux_arm64.tar.gz"
+    end
+    on_intel do
+      sha256 "d6796c62d1649d1e358f0bede52c194b1d0bd0660621371ed9310b709c33a056"
+      url "https://github.com/yo61/go-udap/releases/download/v#{version}/go-udap_#{version}_linux_x86_64.tar.gz"
     end
   end
 
