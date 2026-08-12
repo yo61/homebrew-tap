@@ -3,8 +3,8 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/4c/f0/36b001d927ae05c0ee55a3a485f84d6a3b83ceb3a92c822209b6cc1375da/jobhound-0.18.0.tar.gz"
-  sha256 "738345732e35c8071df7f58cdb8022cb4480c85ffa737f860d5569cc6e3838b0"
+  url "https://files.pythonhosted.org/packages/65/6b/96678b3840286075d5705694cd04ca2f3b72fc7a32ddc5d25bbafc10a40a/jobhound-0.18.1.tar.gz"
+  sha256 "b08f026613c2f5af608069dbc6109ccfbe147201f3ab419e41d6f6cc396990cf"
   license "Apache-2.0"
 
   bottle do
@@ -54,8 +54,8 @@ class Jobhound < Formula
   end
 
   resource "cyclopts" do
-    url "https://files.pythonhosted.org/packages/3c/8b/fa4bfca58481ff7ef3d48ba706ccd4a7eaa1e27e7b1d9e10cbb3ae0f780f/cyclopts-4.22.4.tar.gz"
-    sha256 "d48c17e8d4a334b3f33b82920afabbf52c877a2e21edd55a172433c288bc7720"
+    url "https://files.pythonhosted.org/packages/be/05/689617b7e86503417c172f577d791524cb13b9697303d5d44409a971ba10/cyclopts-4.22.5.tar.gz"
+    sha256 "94044506317462cad90fb01a917dadce1f48a0915ba3605dc8d178dea1229e24"
   end
 
   resource "docstring-parser" do
