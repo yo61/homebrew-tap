@@ -1,0 +1,138 @@
+name: brew style
+
+# Daily canary for tap-wide style rot.
+#
+# `brew style` lints the whole tap rather than a PR diff, so a single stale file
+# fails tests.yaml's --only-tap-syntax gate on EVERY open PR, including formula
+# bumps that never touch it. The rot needs no commit to appear: Homebrew ships
+# new and stricter cask cops regularly, and tests.yaml only fires on pushes and
+# PRs under Formula/** or Casks/**, so an untouched-but-now-invalid file stays
+# invisible until the next bump PR trips over it. That is exactly how #104 (a
+# jobhound bump) ended up blocked by Cask/StanzaOrder offenses in an unchanged
+# go-udap cask, fixed in #105.
+#
+# So: re-lint on a schedule, and open a signed autofix PR when rubocop can
+# correct what it finds. Almost every run is a no-op that exits clean.
+#
+# Scope note: this checks the rubocop half of the tap-syntax gate (Formula/ and
+# Casks/). `brew style <tap>` also runs shellcheck and actionlint over .github,
+# neither of which is autocorrectable; workflow changes are already covered by
+# zizmor.yaml and by test-bot on the next recipe PR.
+
+on:
+  schedule:
+    # Daily. A cop change lands within 24h of a Homebrew release, so this
+    # usually opens the fix PR before the next bump PR arrives to trip over it.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  style:
+    name: brew style
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      # An autofix PR from an earlier run is still open. Leave it alone rather
+      # than stacking a second branch carrying the same correction. Checked
+      # before setup-homebrew, which hard-resets the working tree.
+      - name: Check for an open autofix PR
+        id: gate
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin refs/heads/style/autofix > /dev/null 2>&1; then
+            echo "style/autofix already exists; an autofix PR is already open"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Homebrew
+        if: steps.gate.outputs.ready == 'true'
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Homebrew Bundler RubyGems
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
+          key: ubuntu-latest-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ubuntu-latest-rubygems-
+
+      # Workspace-relative paths, matching bump-go-udap.yaml's "Normalise cask
+      # style" step: setup-homebrew registers this checkout as the tap, and a
+      # relative path is unambiguously the copy the commit step will read.
+      - name: Autocorrect
+        if: steps.gate.outputs.ready == 'true'
+        id: style
+        run: |
+          set -euo pipefail
+          # Non-zero exit just means offenses were found; the re-check below is
+          # what decides whether anything is left over.
+          brew style --fix Casks Formula || true
+          changed=$(git diff --name-only)
+          if [[ -z "$changed" ]]; then
+            echo "no autocorrectable offenses"
+          else
+            echo "corrected:"
+            echo "$changed"
+          fi
+          {
+            echo "changed<<GHA_EOF"
+            echo "$changed"
+            echo "GHA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Re-check
+        if: steps.gate.outputs.ready == 'true'
+        id: recheck
+        run: |
+          set -euo pipefail
+          # Whatever rubocop could not correct itself remains here. Record the
+          # verdict rather than failing now, so the PR for what WAS corrected
+          # still gets opened; the final step fails the run.
+          if brew style Casks Formula; then
+            echo "clean=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mint App token
+        if: steps.gate.outputs.ready == 'true' && steps.style.outputs.changed != ''
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          # owner/repositories omitted: the token then defaults to this
+          # repository, which avoids reading github.event.repository on a
+          # schedule event.
+          client-id: ${{ secrets.SEMANTIC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SEMANTIC_RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Commit and open the PR
+        if: steps.gate.outputs.ready == 'true' && steps.style.outputs.changed != ''
+        uses: ./.github/actions/commit-recipe-pr
+        with:
+          file-paths: ${{ steps.style.outputs.changed }}
+          branch: style/autofix
+          token: ${{ steps.app-token.outputs.token }}
+          commit-headline: "style: brew style --fix"
+          pr-title: "style: brew style --fix"
+          pr-body: "Automated `brew style --fix` sweep. Homebrew's cops tightened under files this tap has not changed, which fails the tap-wide `--only-tap-syntax` gate on every open PR until corrected. Review the diff as usual — the sweep only ever applies rubocop's own autocorrections."
+
+      - name: Fail if offenses remain
+        if: steps.gate.outputs.ready == 'true' && steps.recheck.outputs.clean != 'true'
+        run: |
+          set -euo pipefail
+          echo "::error::brew style still reports offenses that --fix could not correct; see the Re-check step"
+          exit 1

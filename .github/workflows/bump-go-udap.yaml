@@ -125,7 +125,7 @@ jobs:
         if: steps.gate.outputs.ready == 'true'
         uses: ./.github/actions/commit-recipe-pr
         with:
-          file-path: Casks/go-udap.rb
+          file-paths: Casks/go-udap.rb
           branch: ${{ steps.gate.outputs.branch }}
           token: ${{ steps.app-token.outputs.token }}
           commit-headline: "chore(go-udap): bump cask to ${{ steps.gate.outputs.version }}"

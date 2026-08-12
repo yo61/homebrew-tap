@@ -193,7 +193,7 @@ jobs:
         if: steps.gate.outputs.ready == 'true'
         uses: ./.github/actions/commit-recipe-pr
         with:
-          file-path: Formula/${{ inputs.formula }}.rb
+          file-paths: Formula/${{ inputs.formula }}.rb
           branch: ${{ steps.gate.outputs.branch }}
           token: ${{ steps.app-token.outputs.token }}
           commit-headline: "chore(${{ inputs.formula }}): bump to ${{ steps.gate.outputs.version }}"

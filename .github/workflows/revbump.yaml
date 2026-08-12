@@ -113,7 +113,7 @@ jobs:
       - name: Open the revision-bump PR
         uses: ./.github/actions/commit-recipe-pr
         with:
-          file-path: Formula/${{ inputs.formula }}.rb
+          file-paths: Formula/${{ inputs.formula }}.rb
           branch: ${{ steps.rev.outputs.branch }}
           token: ${{ steps.app-token.outputs.token }}
           commit-headline: "chore(${{ inputs.formula }}): revision ${{ steps.rev.outputs.revision }}"

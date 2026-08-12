@@ -1,14 +1,18 @@
 name: Commit recipe and open PR
 description: >-
-  Create the given branch at main's HEAD, commit the workspace's recipe file
-  (Formula/<f>.rb or Casks/<c>.rb) as a GitHub-signed GraphQL commit, and open a
-  PR. The signed commit lets the downstream publish workflow squash-merge onto
-  signature-protected main with no ruleset bypass. The Contents REST API does not
-  sign — only createCommitOnBranch and the web UI do.
+  Create the given branch at main's HEAD, commit the listed workspace files as a
+  single GitHub-signed GraphQL commit, and open a PR. The signed commit lets the
+  downstream publish workflow squash-merge onto signature-protected main with no
+  ruleset bypass. The Contents REST API does not sign — only createCommitOnBranch
+  and the web UI do.
 
 inputs:
-  file-path:
-    description: Recipe file to commit, e.g. Formula/unifictl.rb or Casks/go-udap.rb
+  file-paths:
+    description: >-
+      Space- or newline-separated files to commit, e.g. Formula/unifictl.rb, or
+      several paths for a style sweep. Each listed file must differ from main or
+      the action fails closed, so a caller that silently produced no edit gets an
+      error instead of an empty PR.
     required: true
   branch:
     description: Branch to create and open the PR from (e.g. bump/unifictl-0.4.0 or cask/go-udap-2.4.5)
@@ -32,17 +36,24 @@ runs:
     - shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
-        FILE_PATH: ${{ inputs.file-path }}
+        FILE_PATHS: ${{ inputs.file-paths }}
         BRANCH: ${{ inputs.branch }}
         HEADLINE: ${{ inputs.commit-headline }}
         PR_TITLE: ${{ inputs.pr-title }}
         PR_BODY: ${{ inputs.pr-body }}
       run: |
         set -euo pipefail
-        if git diff --quiet -- "$FILE_PATH"; then
-          echo "::error::$FILE_PATH unchanged; nothing to commit"
+        mapfile -t paths < <(printf '%s\n' "$FILE_PATHS" | tr ' ' '\n' | sed '/^$/d')
+        if [[ ${#paths[@]} -eq 0 ]]; then
+          echo "::error::file-paths is empty; nothing to commit"
           exit 1
         fi
+        for path in "${paths[@]}"; do
+          if git diff --quiet -- "$path"; then
+            echo "::error::$path unchanged; nothing to commit"
+            exit 1
+          fi
+        done
         # Create the commit through GitHub's GraphQL createCommitOnBranch:
         # GitHub builds and signs the commit server-side (committer "GitHub",
         # verified), so the PR carries no "commits must have verified signatures"
@@ -54,19 +65,26 @@ runs:
         # (at main's HEAD) first; the mutation then adds the one commit.
         gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" \
           -f ref="refs/heads/${BRANCH}" -f sha="$base_sha" >/dev/null
+        # One mutation carries every file, so a multi-file sweep lands as a
+        # single commit rather than one commit (and one push) per path.
+        additions=$(
+          for path in "${paths[@]}"; do
+            jq -nc --arg path "$path" --arg contents "$(base64 -w0 "$path")" \
+              '{path: $path, contents: $contents}'
+          done | jq -sc .
+        )
         jq -nc \
           --arg repo "$GITHUB_REPOSITORY" \
           --arg branch "$BRANCH" \
           --arg oid "$base_sha" \
           --arg headline "$HEADLINE" \
-          --arg path "$FILE_PATH" \
-          --arg contents "$(base64 -w0 "$FILE_PATH")" \
+          --argjson additions "$additions" \
           '{query:"mutation($input:CreateCommitOnBranchInput!){createCommitOnBranch(input:$input){commit{oid}}}",
             variables:{input:{
               branch:{repositoryNameWithOwner:$repo,branchName:$branch},
               message:{headline:$headline},
               expectedHeadOid:$oid,
-              fileChanges:{additions:[{path:$path,contents:$contents}]}}}}' \
+              fileChanges:{additions:$additions}}}}' \
           | gh api graphql --input - >/dev/null
         gh api -X POST "repos/${GITHUB_REPOSITORY}/pulls" \
           -f title="$PR_TITLE" \
