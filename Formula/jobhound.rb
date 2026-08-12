@@ -3,14 +3,14 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/4c/f0/36b001d927ae05c0ee55a3a485f84d6a3b83ceb3a92c822209b6cc1375da/jobhound-0.18.0.tar.gz"
-  sha256 "738345732e35c8071df7f58cdb8022cb4480c85ffa737f860d5569cc6e3838b0"
+  url "https://files.pythonhosted.org/packages/65/6b/96678b3840286075d5705694cd04ca2f3b72fc7a32ddc5d25bbafc10a40a/jobhound-0.18.1.tar.gz"
+  sha256 "b08f026613c2f5af608069dbc6109ccfbe147201f3ab419e41d6f6cc396990cf"
   license "Apache-2.0"
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.0"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "b1e6064d7a60448ed65803a2ccce0f8d1e2fa9cc4fce220f595ec5a81fae421d"
-    sha256 cellar: :any,                 x86_64_linux: "bc5cd94be3ff98e9808bf0054bf7671382bd65e5254b2638017a28c963a2590f"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.1"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "adfe692187df2643b9b1eaacc2fb40022bc3b76d8504cdd91b38640672b2ba4c"
+    sha256 cellar: :any,                 x86_64_linux: "56a12bdbf83b82b1f34191ff6636020370d801e9be6aadb57e9fb2b2479a9a8b"
   end
 
   depends_on "cryptography" => :no_linkage
@@ -54,8 +54,8 @@ class Jobhound < Formula
   end
 
   resource "cyclopts" do
-    url "https://files.pythonhosted.org/packages/3c/8b/fa4bfca58481ff7ef3d48ba706ccd4a7eaa1e27e7b1d9e10cbb3ae0f780f/cyclopts-4.22.4.tar.gz"
-    sha256 "d48c17e8d4a334b3f33b82920afabbf52c877a2e21edd55a172433c288bc7720"
+    url "https://files.pythonhosted.org/packages/be/05/689617b7e86503417c172f577d791524cb13b9697303d5d44409a971ba10/cyclopts-4.22.5.tar.gz"
+    sha256 "94044506317462cad90fb01a917dadce1f48a0915ba3605dc8d178dea1229e24"
   end
 
   resource "docstring-parser" do
