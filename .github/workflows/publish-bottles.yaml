@@ -154,8 +154,15 @@ jobs:
           # `$(... || true)` would leave release_id holding a JSON error blob —
           # non-empty — and aim the loop below at a nonsense URL on the normal
           # first-publish path, where the release does not exist yet.
+          #
+          # Only a genuine 404 means "no release yet". Any other failure (rate
+          # limit, 5xx, token trouble) must fail the step: treating it as
+          # "nothing to clear" would skip the cleanup and hand pr-upload the
+          # very collision this exists to prevent. gh reports the status on
+          # stderr as `gh: Not Found (HTTP 404)`.
           tag="${formula}-${pkg_version}"
-          if release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq .id 2>/dev/null); then
+          rel_err="${RUNNER_TEMP}/release-lookup.err"
+          if release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq .id 2>"$rel_err"); then
             gh api --paginate "repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets" \
               --jq '.[] | select(.name | endswith(".bottle.tar.gz")) | "\(.id) \(.name)"' \
               | while read -r asset_id asset_name; do
@@ -163,8 +170,12 @@ jobs:
                   gh api -X DELETE \
                     "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" >/dev/null
                 done
-          else
+          elif grep -q "(HTTP 404)" "$rel_err"; then
             echo "no existing release ${tag}; nothing to clear"
+          else
+            echo "::error::could not determine whether release ${tag} already exists"
+            cat "$rel_err"
+            exit 1
           fi
 
           brew pr-upload --verbose \
