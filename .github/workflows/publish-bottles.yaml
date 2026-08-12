@@ -25,13 +25,52 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  # This workflow re-triggers itself: the publish job pushes the bottle commit
+  # to the bump PR's branch, which is a `synchronize` on that PR, which runs
+  # test-bot again, whose completion fires this workflow a second time — by
+  # which point the PR is merged and the branch deleted. That second run has
+  # nothing to publish, so decide that here, before the job that mutates the
+  # release. Deciding it inside the publish job instead is what broke jobhound
+  # 0.18.1: the run reached the upload step, replaced the bottles the just-
+  # merged formula points at with a fresh rebuild (different filenames), and
+  # only then failed on the deleted branch, 404ing every install.
+  guard:
     runs-on: ubuntu-latest
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       startsWith(github.event.workflow_run.head_branch, 'bump/')
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      publish: ${{ steps.open-pr.outputs.publish }}
+    steps:
+      # GITHUB_TOKEN, not the App token: a read-only lookup does not need the
+      # write-capable token, and minting one before we know there is work is
+      # the kind of thing this job exists to avoid.
+      - name: Look for an open bump PR
+        id: open-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          pr=$(gh pr list --repo "${GITHUB_REPOSITORY}" --head "${HEAD_BRANCH}" \
+                 --state open --json number --jq '.[0].number // empty')
+          if [[ -z "$pr" ]]; then
+            echo "no open PR for ${HEAD_BRANCH}: already published or superseded"
+            echo "publish=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "publishing the bottles for PR #${pr}"
+            echo "publish=true" >>"$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: guard
+    if: needs.guard.outputs.publish == 'true'
     permissions:
       contents: read
     steps:
@@ -135,15 +174,19 @@ jobs:
           # already on the release ("Validation Failed: ReleaseAsset
           # already_exists"), so a publish that failed *after* uploading can
           # never be re-run — the retry dies here instead of reaching the merge.
-          # That is what happened on #104. Clear this version's bottle assets so
-          # the upload below replaces rather than collides.
+          # That is what happened on #104. Clear the assets this run is about to
+          # upload so the upload replaces rather than collides.
           #
-          # Scoped to the <formula>-<pkg_version> release, so it can only touch
-          # bottles for the exact version this run just rebuilt, and only
-          # *.bottle.tar.gz (any other asset on the release is left alone).
-          # Matching by local filename would not work: the local bottle is
-          # jobhound--0.18.0.<platform>.bottle.tar.gz (double dash) while the
-          # uploaded asset is jobhound-0.18.0.<platform>.bottle.tar.gz (single).
+          # Scoped to the exact filenames in the bottle JSON, not to every
+          # *.bottle.tar.gz on the release: rebuild numbers are part of the
+          # filename (jobhound-0.18.1.arm64_tahoe.bottle.1.tar.gz) and are
+          # chosen at build time, so a run holding rebuild N must never delete
+          # rebuild N-1 — those are the bottles a published formula is serving.
+          # Deleting by suffix is what broke jobhound 0.18.1.
+          #
+          # The JSON is also the only place the upload name appears: the local
+          # file is jobhound--0.18.1.<platform>.bottle.tar.gz (double dash),
+          # the uploaded asset jobhound-0.18.1.<platform>.bottle.tar.gz.
           #
           # Deliberately not --warn-on-upload-failure: that downgrades *every*
           # upload error to a warning, so a genuinely failed upload would still
@@ -161,11 +204,18 @@ jobs:
           # very collision this exists to prevent. gh reports the status on
           # stderr as `gh: Not Found (HTTP 404)`.
           tag="${formula}-${pkg_version}"
+          uploads="${RUNNER_TEMP}/upload-filenames.txt"
+          jq -r '.[].bottle.tags[].filename' ./*.bottle.json | sort -u >"$uploads"
+          if [[ ! -s "$uploads" ]]; then
+            echo "::error::could not read bottle filenames from bottle JSON"
+            exit 1
+          fi
           rel_err="${RUNNER_TEMP}/release-lookup.err"
           if release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq .id 2>"$rel_err"); then
             gh api --paginate "repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets" \
-              --jq '.[] | select(.name | endswith(".bottle.tar.gz")) | "\(.id) \(.name)"' \
+              --jq '.[] | "\(.id) \(.name)"' \
               | while read -r asset_id asset_name; do
+                  grep -qxF "$asset_name" "$uploads" || continue
                   echo "replacing existing bottle asset ${asset_name} on ${tag}"
                   gh api -X DELETE \
                     "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" >/dev/null
@@ -244,10 +294,17 @@ jobs:
           # a PR merge) and lands one GitHub-signed commit on main. sha= pins the
           # merge to the bottle commit we just authored, so a moved head fails
           # closed and main is untouched (see the head-sha TOCTOU decision).
-          # Retry a few times: GitHub computes PR mergeability asynchronously and
-          # can briefly report the fresh PR as not-yet-mergeable.
+          #
+          # Retry for minutes, not seconds. Two separate waits stack here:
+          # GitHub computes mergeability asynchronously (405 "Pull Request is
+          # not mergeable" for a second or two after the push), and the ruleset
+          # requires an approving review with no bypass actor, so the merge is
+          # blocked ("Repository rule violations found") until the reviewing App
+          # gets to the PR. On 0.18.1 that approval landed 39s after the bottle
+          # commit — five seconds after the old 5 x 5s window gave up, which
+          # left the release published and the PR unmerged.
           merged=""
-          for attempt in 1 2 3 4 5; do
+          for attempt in $(seq 1 20); do
             if gh api -X PUT "repos/${GITHUB_REPOSITORY}/pulls/${pr}/merge" \
                  -f merge_method=squash \
                  -f sha="${bottle_sha}" \
@@ -258,10 +315,10 @@ jobs:
             fi
             echo "merge attempt ${attempt} not ready:"
             cat /tmp/merge_err
-            sleep 5
+            sleep 15
           done
           if [[ -z "$merged" ]]; then
-            echo "::error::squash-merge failed"
+            echo "::error::squash-merge failed after 5 minutes"
             cat /tmp/merge_err
             exit 1
           fi
