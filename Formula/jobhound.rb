@@ -8,10 +8,9 @@ class Jobhound < Formula
   license "Apache-2.0"
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.1"
-    rebuild 1
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "468977ed3226c81a575cfb8ef7473e2d4166d583f6ddd74268f0c8ed91584acc"
-    sha256 cellar: :any,                 x86_64_linux: "115307d4e5c3f531a41df40d5d7adbb6c55c33e9035feff0e2105fc8c72a68a7"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.2"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "5fddb6642de27439819adf051dd49b46f26bbdf4c61b6c15828c0d31084e68a5"
+    sha256 cellar: :any,                 x86_64_linux: "131fc6999168b79ff772220084b1fa42e764edc82124db7daadc30c5053efcd6"
   end
 
   depends_on "cryptography" => :no_linkage
