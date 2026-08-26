@@ -1,6 +1,7 @@
 # yo61 Homebrew tap
 
-Homebrew formulae and casks for tools published by [yo61](https://github.com/yo61).
+Homebrew formulae and casks for tools published by [yo61](https://github.com/yo61),
+plus the occasional third-party tool adopted here after its upstream was abandoned.
 
 ## Install
 
@@ -30,6 +31,7 @@ brew install yo61/tap/go-udap    # cask
 | --- | --- |
 | [`jobhound`](https://github.com/yo61/jobhound) | Action-based CLI for tracking a job hunt |
 | [`unifictl`](https://github.com/yo61/unifictl) | Imperative UniFi homelab actions beyond the Integration API |
+| [`talhelper`](https://github.com/budimanjojo/talhelper) | Configuration helper for Talos clusters — **adopted**, upstream archived 2026-08-26 |
 
 ## Available casks
 
@@ -39,10 +41,11 @@ brew install yo61/tap/go-udap    # cask
 
 ## How content lands here
 
-Each artifact is updated by its own upstream mechanism — there's no tap-wide rule, and none of these files should be hand-edited:
+Each artifact is updated by its own upstream mechanism — there's no tap-wide rule, and with one exception below, none of these files should be hand-edited:
 
 - `go-udap` is generated and pushed by [GoReleaser](https://goreleaser.com/) from `yo61/go-udap`'s release workflow.
 - `jobhound` and `unifictl` are updated by `.github/workflows/bump-jobhound.yaml` / `bump-unifictl.yaml`, triggered via `repository_dispatch` from each tool's release workflow. Each bump opens a PR that regenerates the formula with `brew bump-formula-pr` + `brew update-python-resources`.
+- `talhelper` is **hand-maintained and frozen**, and is the exception to the rule above. Its upstream was archived on 2026-08-26 with v3.1.17 as the final release, so there is no release workflow to dispatch from and nothing to bump — its `livecheck` is skipped for that reason. It is here because homebrew-core deprecated its formula the same day and disables it on 2027-08-26; without this, `brew install talhelper` stops working then.
 
 Formula PRs are audited, installed, tested, and bottled across macOS (Apple Silicon + Intel) and Linux by `.github/workflows/tests.yaml` (`brew test-bot`). When that run is green on a `bump/*` PR, `.github/workflows/publish-bottles.yaml` runs `brew pr-pull` to attach the bottles to a GitHub Release and land the formula on `main`, so `brew install` pours a pre-built bottle instead of building from source.
 
