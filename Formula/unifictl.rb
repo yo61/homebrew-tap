@@ -8,9 +8,9 @@ class Unifictl < Formula
   license "Apache-2.0"
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.5.1"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "77bbc0c4c04a166b66878767b2670e33ddb77376597a9d91af9ca74f024ca92f"
-    sha256 cellar: :any_skip_relocation, x86_64_linux: "f80849998033d16f82a138c4cd9e7bcf818c4b67faf4e45ba7880ffd1f6808a7"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.5.2"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "c3de6902e00e38be2f22d2cf7bc0a4d1a656ac0f4166ab0d500c7dbd7518e973"
+    sha256 cellar: :any_skip_relocation, x86_64_linux: "8de50cafbfdf13b407be27971254a5da7dd8a91f40d97da1078ff949ad6f805b"
   end
 
   depends_on "python@3.13"
