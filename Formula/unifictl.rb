@@ -3,14 +3,14 @@ class Unifictl < Formula
 
   desc "Imperative UniFi homelab actions beyond the Integration API"
   homepage "https://github.com/yo61/unifictl"
-  url "https://files.pythonhosted.org/packages/16/30/4671ae07fdba3b6e9d09294022958eba4206b486bf928800c185deb5bdeb/unifictl-0.5.2.tar.gz"
-  sha256 "48c755fcb23c3848b3ece00dd3bcf033bded20ff4bafa4819c2ba0ab20a8433e"
+  url "https://files.pythonhosted.org/packages/b4/00/642430183bf268133f2003162763410a0a4cbef0c8da6f041d114198ba2f/unifictl-0.5.3.tar.gz"
+  sha256 "9b01d4c6283c96afefb34c53e7750d897d8c3cdbccb07583bc09ea44f8a803ef"
   license "Apache-2.0"
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.5.2"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "c3de6902e00e38be2f22d2cf7bc0a4d1a656ac0f4166ab0d500c7dbd7518e973"
-    sha256 cellar: :any_skip_relocation, x86_64_linux: "8de50cafbfdf13b407be27971254a5da7dd8a91f40d97da1078ff949ad6f805b"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.5.3"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "44daafeb5825366f1237d1e436b3dc17e2bfbb7f5e1f36807ae224143241b7be"
+    sha256 cellar: :any_skip_relocation, x86_64_linux: "47917d671f5fbb06df972bb938d890f1974f657722a1441ac8e2bb95e701d103"
   end
 
   depends_on "python@3.13"
@@ -101,8 +101,8 @@ class Unifictl < Formula
   end
 
   resource "wcwidth" do
-    url "https://files.pythonhosted.org/packages/34/74/c6428f875774288bec1396f5bfcbc2d925700a4dad61727fd5f2b12f249d/wcwidth-0.8.2.tar.gz"
-    sha256 "91fbef97204b96a3d4d421609b80340b760cf33e26da123ff243d76b1fda8dda"
+    url "https://files.pythonhosted.org/packages/36/57/ed58088fafdf4c55a0ad6bde846502567645424d7ebf325230b9237f4085/wcwidth-0.8.3.tar.gz"
+    sha256 "d128512515fbf4612e0ff21fd6380399210318b7b54a9af59dff8454cf9730eb"
   end
 
   resource "xdg-base-dirs" do
