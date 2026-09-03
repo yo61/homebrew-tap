@@ -3,8 +3,8 @@ class Unifictl < Formula
 
   desc "Imperative UniFi homelab actions beyond the Integration API"
   homepage "https://github.com/yo61/unifictl"
-  url "https://files.pythonhosted.org/packages/16/30/4671ae07fdba3b6e9d09294022958eba4206b486bf928800c185deb5bdeb/unifictl-0.5.2.tar.gz"
-  sha256 "48c755fcb23c3848b3ece00dd3bcf033bded20ff4bafa4819c2ba0ab20a8433e"
+  url "https://files.pythonhosted.org/packages/b4/00/642430183bf268133f2003162763410a0a4cbef0c8da6f041d114198ba2f/unifictl-0.5.3.tar.gz"
+  sha256 "9b01d4c6283c96afefb34c53e7750d897d8c3cdbccb07583bc09ea44f8a803ef"
   license "Apache-2.0"
 
   bottle do
@@ -101,8 +101,8 @@ class Unifictl < Formula
   end
 
   resource "wcwidth" do
-    url "https://files.pythonhosted.org/packages/34/74/c6428f875774288bec1396f5bfcbc2d925700a4dad61727fd5f2b12f249d/wcwidth-0.8.2.tar.gz"
-    sha256 "91fbef97204b96a3d4d421609b80340b760cf33e26da123ff243d76b1fda8dda"
+    url "https://files.pythonhosted.org/packages/36/57/ed58088fafdf4c55a0ad6bde846502567645424d7ebf325230b9237f4085/wcwidth-0.8.3.tar.gz"
+    sha256 "d128512515fbf4612e0ff21fd6380399210318b7b54a9af59dff8454cf9730eb"
   end
 
   resource "xdg-base-dirs" do
