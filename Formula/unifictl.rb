@@ -3,8 +3,8 @@ class Unifictl < Formula
 
   desc "Imperative UniFi homelab actions beyond the Integration API"
   homepage "https://github.com/yo61/unifictl"
-  url "https://files.pythonhosted.org/packages/19/04/0e904c9b397ee9da012a42eea295ec66434d55b1ff53e31fc412134f8e4e/unifictl-0.5.4.tar.gz"
-  sha256 "785dc7cd5d67ee80f6ad8bc268b863d1b7628661e486e5d17549555d4f8d1694"
+  url "https://files.pythonhosted.org/packages/f6/74/52728769ae015b197f131ce3bb3fa0ecaf8125f640fd54b69676948ee532/unifictl-0.5.5.tar.gz"
+  sha256 "07e1760be0c3b1dfaf33a4687f130fafa05bbe103d507134c6d0f04c1c1b4130"
   license "Apache-2.0"
 
   bottle do
@@ -16,8 +16,8 @@ class Unifictl < Formula
   depends_on "python@3.13"
 
   resource "anyio" do
-    url "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz"
-    sha256 "cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f"
+    url "https://files.pythonhosted.org/packages/a9/d2/f4d173e22df740bc37b1db102b386ba719b66e95b0f0d751f556b387e6d2/anyio-4.15.1.tar.gz"
+    sha256 "9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94"
   end
 
   resource "attrs" do
@@ -31,8 +31,8 @@ class Unifictl < Formula
   end
 
   resource "cyclopts" do
-    url "https://files.pythonhosted.org/packages/5e/62/1b160d5e8c20174392a3a5e3e7e6542e02e6f6922b35ba0962829a6b5c90/cyclopts-4.23.0.tar.gz"
-    sha256 "2f764bbd90f1888073971c09576f90e594f80353588e10aa615b7d59bc009821"
+    url "https://files.pythonhosted.org/packages/e6/4e/9d8d4ac3be590cc6553047bfdd53dc6ed776fe3e180ad77559629b0d1c66/cyclopts-4.24.0.tar.gz"
+    sha256 "9bf9da3f09a0ff74aa6621e1644abfdde3b22158b0c09b5aaa6f82bd0c31c526"
   end
 
   resource "docstring-parser" do
@@ -98,6 +98,11 @@ class Unifictl < Formula
   resource "tomlkit" do
     url "https://files.pythonhosted.org/packages/94/96/e07752635b98536177fa1f37671c8f3cdde2e724c6bcf6034b2cfb571565/tomlkit-0.15.1.tar.gz"
     sha256 "e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97"
+  end
+
+  resource "typing-extensions" do
+    url "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz"
+    sha256 "dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5"
   end
 
   resource "wcwidth" do
