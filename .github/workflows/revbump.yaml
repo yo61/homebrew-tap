@@ -7,8 +7,11 @@ name: Revision bump
 #
 # The substantive formula edit is authored by a human on `source-ref`; this
 # workflow only sets `revision` (main's revision + 1) and opens the PR. The
-# release tag / root_url stay <formula>-<version> — revision bottles (0.4.0_1)
-# coexist in the existing version's release.
+# release tag and root_url both carry the revision, because brew bakes
+# root_url from pkg_version: a revision bump publishes to its own
+# <formula>-<version>_<rev> release (unifictl-0.4.0_2), not into the plain
+# version's one. publish-bottles.yaml derives the tag from pkg_version for
+# exactly this reason — see the comment above its `tag=` assignment.
 
 on:
   workflow_call:

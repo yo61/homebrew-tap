@@ -170,6 +170,54 @@ jobs:
             echo "::error::could not read pkg_version from bottle JSON"
             exit 1
           fi
+
+          # Never replace the bottles the formula on main is already serving.
+          # This run's bottles are a fresh test-bot build, and bottles are not
+          # byte-reproducible, so identical filenames do not mean identical
+          # bytes: the clearing loop below would delete the live assets and
+          # upload tarballs whose checksums main does not declare, failing the
+          # integrity check on every install. That is how unifictl 0.5.5 broke
+          # (#122). Run 34625912156 uploaded its bottles and committed their
+          # checksums; its merge failed on a missing approving review; the PR
+          # was merged by hand; run 34626799039 then replaced the assets with
+          # its own build.
+          #
+          # The guard job cannot cover this. It resolves the open bump PR
+          # before this job starts, and the PR can be merged while the job
+          # runs — on 0.5.5 the merge landed 29s after the guard passed and
+          # 29s before the upload. main is the one source that cannot race:
+          # once the bottled formula is on main those assets are live, whoever
+          # merged it and whenever.
+          #
+          # Keyed on the exact root_url this run will bake in, so the check and
+          # the upload can never disagree about what "this version" means.
+          # pkg_version carries any Homebrew revision and the release tag
+          # carries it too (unifictl-0.4.0_2), so a revision bump targets a
+          # different release and is not blocked. A re-run of a publish that
+          # failed before merging is not blocked either — that is #104's retry,
+          # and main is not bottled yet at that point.
+          #
+          # A 404 means the formula is not on main yet: a brand-new formula's
+          # first publish, exactly the case that must proceed. Any other
+          # failure stops the run, because treating it as "not bottled" would
+          # skip the check and permit the replacement it exists to prevent.
+          root_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${formula}-${pkg_version}"
+          main_formula="${RUNNER_TEMP}/main-formula.rb"
+          main_err="${RUNNER_TEMP}/main-formula.err"
+          if gh api "repos/${GITHUB_REPOSITORY}/contents/Formula/${formula}.rb?ref=main" \
+               -H "Accept: application/vnd.github.raw" >"$main_formula" 2>"$main_err"; then
+            if grep -qF "root_url \"${root_url}\"" "$main_formula"; then
+              echo "::error::${formula} ${pkg_version} is already bottled on main; refusing to replace the assets it is serving"
+              exit 1
+            fi
+          elif grep -q "(HTTP 404)" "$main_err"; then
+            echo "Formula/${formula}.rb is not on main yet; nothing to protect"
+          else
+            echo "::error::could not read Formula/${formula}.rb from main"
+            cat "$main_err"
+            exit 1
+          fi
+
           # pr-upload aborts the whole run if an asset of the same name is
           # already on the release ("Validation Failed: ReleaseAsset
           # already_exists"), so a publish that failed *after* uploading can
@@ -228,12 +276,22 @@ jobs:
             exit 1
           fi
 
-          brew pr-upload --verbose \
-            --root-url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${formula}-${pkg_version}"
+          brew pr-upload --verbose --root-url="$root_url"
           rm -f ./*.bottle.*
 
           if ! grep -q "bottle do" "Formula/${formula}.rb"; then
             echo "::error::no bottle block in formula after pr-upload"
+            exit 1
+          fi
+
+          # The already-bottled-on-main check greps for this exact root_url
+          # line. If brew ever bakes a different string that check stops
+          # matching and fails open — silently, on the one path that protects
+          # live bottles — so assert the two agree while both are in front of
+          # us.
+          if ! grep -qF "root_url \"${root_url}\"" "Formula/${formula}.rb"; then
+            echo "::error::pr-upload baked a root_url the already-bottled check cannot match"
+            grep -n "root_url" "Formula/${formula}.rb" || true
             exit 1
           fi
 
