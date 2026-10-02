@@ -8,9 +8,9 @@ class Unifictl < Formula
   license "Apache-2.0"
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.5.5"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "e5c3e544bb3e83ace141e2ec8317357097968800d6f3a6b6cf4d1fce5e2cf4cd"
-    sha256 cellar: :any_skip_relocation, x86_64_linux: "4ca66eb9e7414e6afa90125767c257cf84ffef50ae6bc2a5b91edc94d5334446"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/unifictl-0.5.6"
+    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "5f66bb5962fce8b9800711d48e9f41e6edcc00442634b21739845677310029c9"
+    sha256 cellar: :any,                 x86_64_linux: "4d25e735f15015d6dc77b38fa3c5b681e3f6c1c79d7fdccf554bd2f9a466530c"
   end
 
   depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
