@@ -348,6 +348,12 @@ jobs:
             exit 1
           fi
 
+          # Bump PRs open as drafts so the unbottled formula cannot be merged
+          # while this run is still uploading (#130, #131). The bottle commit
+          # is on the branch now, so the PR is safe to land. A no-op on a PR
+          # that is already ready, e.g. a re-run after a failed merge.
+          gh pr ready "$pr" --repo "${GITHUB_REPOSITORY}"
+
           # Squash-merge via the merge API: satisfies the pull_request rule (it is
           # a PR merge) and lands one GitHub-signed commit on main. sha= pins the
           # merge to the bottle commit we just authored, so a moved head fails

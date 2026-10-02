@@ -121,4 +121,5 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           commit-headline: "chore(${{ inputs.formula }}): revision ${{ steps.rev.outputs.revision }}"
           pr-title: "chore(${{ inputs.formula }}): revision ${{ steps.rev.outputs.revision }}"
-          pr-body: "Revision bump (upstream ${{ steps.rev.outputs.version }} unchanged). tests.yaml builds bottles; publish-bottles.yaml adds the bottle and squash-merges once green."
+          pr-body: "Revision bump (upstream ${{ steps.rev.outputs.version }} unchanged). tests.yaml builds bottles; publish-bottles.yaml adds the bottle, marks this PR ready and squash-merges once green. Draft until then: do not mark it ready or merge it by hand."
+          draft: "true"
