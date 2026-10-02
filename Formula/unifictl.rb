@@ -13,6 +13,7 @@ class Unifictl < Formula
     sha256 cellar: :any_skip_relocation, x86_64_linux: "4ca66eb9e7414e6afa90125767c257cf84ffef50ae6bc2a5b91edc94d5334446"
   end
 
+  depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
   depends_on "python@3.13"
 
   resource "anyio" do
