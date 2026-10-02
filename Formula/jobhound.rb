@@ -13,6 +13,7 @@ class Jobhound < Formula
     sha256 cellar: :any,                 x86_64_linux: "6b0e7e91d06fe8c50393dcaae22d7c355479c220d13c1dcbe607337694cced36"
   end
 
+  depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
   depends_on "cryptography" => :no_linkage
   depends_on "pydantic" => :no_linkage
   depends_on "python@3.13"
