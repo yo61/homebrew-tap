@@ -1,0 +1,38 @@
+name: bottle block
+
+# Fails while a formula's bottle block points at a different version than the
+# formula itself — the state that 404s every install (#131).
+#
+# Red is the expected state of a bump/* PR until publish-bottles.yaml adds the
+# bottle commit. Deliberately a separate workflow from tests.yaml:
+# publish-bottles.yaml only runs when the "brew test-bot" workflow concludes
+# successfully, so a failing job there would stop every bump from publishing.
+
+on:
+  pull_request:
+    paths:
+      - Formula/**
+      - .github/scripts/check-bottle-blocks.sh
+      - .github/workflows/bottle-block.yaml
+  push:
+    branches:
+      - main
+    paths:
+      - Formula/**
+      - .github/scripts/check-bottle-blocks.sh
+      - .github/workflows/bottle-block.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  bottle-block:
+    name: bottle block matches version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare each bottle root_url with its formula version
+        run: .github/scripts/check-bottle-blocks.sh Formula
