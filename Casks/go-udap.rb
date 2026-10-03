@@ -42,8 +42,8 @@ cask "go-udap" do
   manpage "share/man/man1/go-udap-set.1"
   manpage "share/man/man1/go-udap.1"
   bash_completion "completions/go-udap.bash"
-  fish_completion "completions/go-udap.fish"
   zsh_completion "completions/_go-udap"
+  fish_completion "completions/go-udap.fish"
 
   postflight_steps do
     on_macos do
