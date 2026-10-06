@@ -80,7 +80,7 @@ jobs:
       # commit step with nothing to commit. Reset a pristine tree here instead.
       - name: Set up Homebrew
         if: steps.gate.outputs.ready == 'true'
-        uses: Homebrew/actions/setup-homebrew@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+        uses: Homebrew/actions/setup-homebrew@dc7099b3e807f1e2ecc61f3ecabc840eedd5586a  # master @ 2026-05-22
 
       - name: Fetch the rendered cask from the release
         if: steps.gate.outputs.ready == 'true'
