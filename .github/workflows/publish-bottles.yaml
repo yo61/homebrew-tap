@@ -104,7 +104,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Set up git
-        uses: Homebrew/actions/git-user-config@6eaeff80e7e5c43087c0e5eb5aa82120399e9c91  # master @ 2026-05-22
+        uses: Homebrew/actions/git-user-config@dc7099b3e807f1e2ecc61f3ecabc840eedd5586a  # master @ 2026-05-22
 
       - name: Merge bottles and upload to the release
         env:
