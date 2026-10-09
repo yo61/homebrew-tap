@@ -25,7 +25,11 @@ jobs:
         # bottled there — the job would only ever warn "No bottle built".
         os: [macos-26]
         include:
-          - os: ubuntu-latest
+          # A matrix value, which Renovate does not read: move it by hand with the runs-on
+          # labels in the other workflows.
+          - os: ubuntu-26.04
+            # Floating on purpose: brew test-bot runs Homebrew from its main branch (as
+            # setup-homebrew does on macOS), so the image tracks brew main too.
             container: ghcr.io/homebrew/brew:main
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -42,7 +46,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@dc7099b3e807f1e2ecc61f3ecabc840eedd5586a  # master @ 2026-05-22
+        uses: Homebrew/actions/setup-homebrew@dc7099b3e807f1e2ecc61f3ecabc840eedd5586a  # master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
