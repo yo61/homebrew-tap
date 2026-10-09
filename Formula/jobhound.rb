@@ -16,7 +16,7 @@ class Jobhound < Formula
   depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
   depends_on "cryptography" => :no_linkage
   depends_on "pydantic" => :no_linkage
-  depends_on "python@3.13"
+  depends_on "python@3.14"
   depends_on "rpds-py" => :no_linkage
 
   # Use brewed Python C-extension packages rather than building them from
@@ -236,5 +236,6 @@ class Jobhound < Formula
   test do
     assert_equal version.to_s, shell_output("#{bin}/jh --version").strip
     assert_match "#compdef jh", shell_output("#{bin}/jh completion zsh")
+    system libexec/"bin/python", "-c", "import mcp.server"
   end
 end
