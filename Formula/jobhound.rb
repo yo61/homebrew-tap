@@ -15,6 +15,7 @@ class Jobhound < Formula
 
   depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
   depends_on "cryptography" => :no_linkage
+  depends_on "lz4"
   depends_on "pydantic" => :no_linkage
   depends_on "python@3.14"
   depends_on "rpds-py" => :no_linkage
