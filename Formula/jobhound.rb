@@ -3,20 +3,21 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/26/e9/5dab2997b0a2e1d943a25eec896b70f9ecafcac9732a6bfe00a12ca5f84f/jobhound-0.18.5.tar.gz"
-  sha256 "d1993d79d9a2883c7b0744832140078bfdf8e04f16da6a14471a72b173c216e1"
+  url "https://files.pythonhosted.org/packages/fb/c2/550c34aeb0487a7d1f0046e07c687547f1e4d9d6dfcb2e5d13c87e50022f/jobhound-0.18.6.tar.gz"
+  sha256 "10df5c60374b760536347ce7a32edafa0b2e20980aae32e81dc4ed8cb4060732"
   license "Apache-2.0"
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.5"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:  "d625643bf29e48089691a3de9caf11966b90f11ec24fbbbcc66bd3bd66a739b3"
-    sha256 cellar: :any,                 x86_64_linux: "a57152a6877bf076f7e6043f58fa6192c74b85746be6ed9d302fc9976a99514c"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.6"
+    sha256 cellar: :any, arm64_tahoe:  "8ee4c409fb5464e7fc2c77ec4656f3f85d8914a06d0a063ac0473fbfff439690"
+    sha256 cellar: :any, x86_64_linux: "d0db856bc98ea4c12ea5ffe4573fd117ada449ba66419dd573938f92e4de9cd8"
   end
 
   depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
   depends_on "cryptography" => :no_linkage
+  depends_on "lz4"
   depends_on "pydantic" => :no_linkage
-  depends_on "python@3.13"
+  depends_on "python@3.14"
   depends_on "rpds-py" => :no_linkage
 
   # Use brewed Python C-extension packages rather than building them from
@@ -55,8 +56,8 @@ class Jobhound < Formula
   end
 
   resource "cyclopts" do
-    url "https://files.pythonhosted.org/packages/f6/32/5f5d814ad9a903c4e45273baabc48fdfdf5f85b39c7c2434c2d247d3b062/cyclopts-5.0.0.tar.gz"
-    sha256 "8bee8822319f5cd90711f568aec54a0a02bd3571ddff45c94aa62405beed38b6"
+    url "https://files.pythonhosted.org/packages/85/8c/7a7f5a3af1845cb6b9c28bf2a6db1bc510a6b9661109138c70ab6d8d650a/cyclopts-5.1.1.tar.gz"
+    sha256 "252fe37b01a80f10933f91c312db551e4e86ffd87bee401ab2ed091769135426"
   end
 
   resource "docstring-parser" do
@@ -120,13 +121,13 @@ class Jobhound < Formula
   end
 
   resource "mcp" do
-    url "https://files.pythonhosted.org/packages/76/31/ac54fb0fdd5b37de704486e288bba4fbbb463f24cfcfedbede407b854513/mcp-2.2.0.tar.gz"
-    sha256 "2dc37ecb1974becdcebdbf7561e7c15a07dbbf20ba21ba16c3593b3038b3afbd"
+    url "https://files.pythonhosted.org/packages/9d/8d/e0d339616f4810e9051d4aba6887afab289ab1f81875fe908b606cdfd0e3/mcp-2.3.0.tar.gz"
+    sha256 "8b147a50441cf059dc88c684e0aeed3687f0aa0f39c6cde7b90330effd2b34d8"
   end
 
   resource "mcp-types" do
-    url "https://files.pythonhosted.org/packages/ae/91/762d7755d971aff8a28d75f7961656148edf27875c8026e6385aaab08ae7/mcp_types-2.2.0.tar.gz"
-    sha256 "d3ed53703ddd10d9c6399f29d322bb66f3f67ab41348ac8556ba23e07fedefad"
+    url "https://files.pythonhosted.org/packages/9e/2d/7c251e34207f6c51000312fc8839111ac45cfe02023f90b44e7f1051dd8e/mcp_types-2.3.0.tar.gz"
+    sha256 "d1e46549edb35ee19a94940fcee6d1addd7e589ab7ea92dda83f5d84781fc362"
   end
 
   resource "mdurl" do
@@ -135,8 +136,8 @@ class Jobhound < Formula
   end
 
   resource "opentelemetry-api" do
-    url "https://files.pythonhosted.org/packages/1f/dc/e12c1fe1ed8a7b7149777127b1a0e12ce5bd5a81d97408bedc2128c260f5/opentelemetry_api-1.45.0.tar.gz"
-    sha256 "711ede81773c8025c2c03dac0450bc89f3d30aea6eabcc815c570d4e35a963f7"
+    url "https://files.pythonhosted.org/packages/2e/02/6e0ae9cc61bd3169d401077b507b3ebc344745171e1051ab430be012dcd9/opentelemetry_api-1.45.1.tar.gz"
+    sha256 "aa38ed19bcc084ba42782a73255b3582283eced7ad6dddbd6695189e69adfb75"
   end
 
   resource "prompt-toolkit" do
@@ -145,8 +146,8 @@ class Jobhound < Formula
   end
 
   resource "pycryptodomex" do
-    url "https://files.pythonhosted.org/packages/c9/85/e24bf90972a30b0fcd16c73009add1d7d7cd9140c2498a68252028899e41/pycryptodomex-3.23.0.tar.gz"
-    sha256 "71909758f010c82bc99b0abf4ea12012c98962fbf0583c2164f8b84533c2e4da"
+    url "https://files.pythonhosted.org/packages/4c/25/214ea825a9031f5af2c8b2506ee16701a2560d4712165dd00098dd527bcb/pycryptodomex-3.24.0.tar.gz"
+    sha256 "0428f19f13452c6b89bbaf2c530f84f369873811dfa77f0cee0da4f40fb0474f"
   end
 
   resource "pygments" do
@@ -215,8 +216,8 @@ class Jobhound < Formula
   end
 
   resource "wcwidth" do
-    url "https://files.pythonhosted.org/packages/dc/ac/3a943d2792c9bb368aaa8b50121c0f778460ba2d7fbdc0a0366201d9e761/wcwidth-0.9.1.tar.gz"
-    sha256 "5823209b0d43af322ce698c689380d7c15ca31fa8e6e3be8459f27031bef0af5"
+    url "https://files.pythonhosted.org/packages/f0/b4/7830542634bb2d3e62aa3b586a72d5b3b6c91c3168929e7000ef3fed041d/wcwidth-0.9.2.tar.gz"
+    sha256 "ae0ef90b90f6af38b54f1fe6d58662ec33b3cb4b8391958a62416d654231727b"
   end
 
   resource "xdg-base-dirs" do
@@ -236,5 +237,6 @@ class Jobhound < Formula
   test do
     assert_equal version.to_s, shell_output("#{bin}/jh --version").strip
     assert_match "#compdef jh", shell_output("#{bin}/jh completion zsh")
+    system libexec/"bin/python", "-c", "import mcp.server"
   end
 end
