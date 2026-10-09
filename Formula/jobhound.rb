@@ -6,6 +6,7 @@ class Jobhound < Formula
   url "https://files.pythonhosted.org/packages/26/e9/5dab2997b0a2e1d943a25eec896b70f9ecafcac9732a6bfe00a12ca5f84f/jobhound-0.18.5.tar.gz"
   sha256 "d1993d79d9a2883c7b0744832140078bfdf8e04f16da6a14471a72b173c216e1"
   license "Apache-2.0"
+  revision 1
 
   bottle do
     root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.5"
@@ -16,7 +17,7 @@ class Jobhound < Formula
   depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
   depends_on "cryptography" => :no_linkage
   depends_on "pydantic" => :no_linkage
-  depends_on "python@3.13"
+  depends_on "python@3.14"
   depends_on "rpds-py" => :no_linkage
 
   # Use brewed Python C-extension packages rather than building them from
@@ -236,5 +237,6 @@ class Jobhound < Formula
   test do
     assert_equal version.to_s, shell_output("#{bin}/jh --version").strip
     assert_match "#compdef jh", shell_output("#{bin}/jh completion zsh")
+    system libexec/"bin/python", "-c", "import mcp.server"
   end
 end
