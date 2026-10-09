@@ -34,6 +34,21 @@ format in the global quality gate.
 
 ## Last triggered: 2026-10-02
 
+## Category: Formula tests
+
+## Criteria:
+
+    - A formula's `test do` loads every optional feature the formula installs
+      (for jobhound, `import mcp.server` for the `[mcp]` extra), not just
+      `--version`
+
+## Severity: warning
+
+## Source: PR #138: homebrew-core's cryptography dropped python@3.13, so
+`jh mcp` failed to import while `jh --version` and test-bot still passed
+
+## Last triggered: 2026-10-09
+
 ## Category: Bottles and releases
 
 ## Criteria:
