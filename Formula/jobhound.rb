@@ -3,14 +3,14 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/60/b3/00703cfc3330de869608b72aa1c1043f7daaaefcc805c496246dc54a9bb1/jobhound-0.18.8.tar.gz"
-  sha256 "befb9190e23184235c5a11ad1b66148b21b490af62dfadefd09f55110efd13cb"
+  url "https://files.pythonhosted.org/packages/55/2d/4b1d1fd519670826f21167490548de7037f7db780519ab942c2ea937946b/jobhound-0.18.9.tar.gz"
+  sha256 "d27096fcbedf85eaca6d6813c570d4d6554c669692359dcd3cef7aefb3edab51"
   license "Apache-2.0"
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.8"
-    sha256 cellar: :any, arm64_tahoe:  "a9dce5de6b57e538bc6eb26440d3b1f60cf2fe988f6ea3efe11f8c3bea0e715e"
-    sha256 cellar: :any, x86_64_linux: "fa5aefc7beb0725db6c5afc576ee5f630738fc80ec54f67d4945d19e5dbf5594"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.9"
+    sha256 cellar: :any, arm64_tahoe:  "c83ffef0490366ceb4cda8595b5b14f11d1bae6e49b05aefe4876f37acae5efd"
+    sha256 cellar: :any, x86_64_linux: "c2d96483fb5730abfe8339defda09e9857aae390389130d7b78af63e0d01802a"
   end
 
   depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
@@ -46,8 +46,8 @@ class Jobhound < Formula
   end
 
   resource "certifi" do
-    url "https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz"
-    sha256 "741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55"
+    url "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz"
+    sha256 "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
   end
 
   resource "click" do
@@ -76,8 +76,8 @@ class Jobhound < Formula
   end
 
   resource "httpcore2" do
-    url "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz"
-    sha256 "e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103"
+    url "https://files.pythonhosted.org/packages/c0/61/afa9d6b7452f9eca73f73d45324eb0bb52f098fd5e6049bf6b8263be9b4e/httpcore2-2.16.0.tar.gz"
+    sha256 "c72cd0413563b17e1cd8354677dff887466f8ec2551679759e93126534428643"
   end
 
   resource "httpx" do
@@ -86,8 +86,8 @@ class Jobhound < Formula
   end
 
   resource "httpx2" do
-    url "https://files.pythonhosted.org/packages/d5/44/474bef2a0e9d90f1715d32cb98b0738695ca17ba324095fb2497ed7fbd59/httpx2-2.13.1.tar.gz"
-    sha256 "e48744a19e3af5ee48313d0ce5fe941d5422fae5705ea922a4aabf94d7800dfa"
+    url "https://files.pythonhosted.org/packages/43/73/5ca2cedf5e4e50423d1c258877865a6b62793633b561c58499f8aeb33b7e/httpx2-2.16.0.tar.gz"
+    sha256 "0d54c98128e8f2ff7fbbde0fca8c359e5f032edeaaaac443cdb7f31f685bcd7f"
   end
 
   resource "idna" do
@@ -186,13 +186,13 @@ class Jobhound < Formula
   end
 
   resource "sse-starlette" do
-    url "https://files.pythonhosted.org/packages/e4/be/0123026f719d1a7936f214a88b553bb5701e04ff2511147c1dab0c5035eb/sse_starlette-3.5.0.tar.gz"
-    sha256 "75de713aa8a9441513cc283220826da079d982770965b951e9437720e8bafdb2"
+    url "https://files.pythonhosted.org/packages/af/2e/16b9cce59c2eebd2f944b41b01df119f8ee65535ce839c462f1b2c9ae2e0/sse_starlette-3.5.1.tar.gz"
+    sha256 "dbb1461cd53c1e284537c3ddcf92f54f24178519a3f1e335e49e5283993db0f7"
   end
 
   resource "starlette" do
-    url "https://files.pythonhosted.org/packages/e9/0c/6efb252d091ecccd7d62048ae11f0ea35cd75a4fbaeea5e30f9c3bf91d10/starlette-1.8.0.tar.gz"
-    sha256 "1565dc0b35d5737a271ed1e0e04e949f4e81198799f216d2667b0a0fb9cf9522"
+    url "https://files.pythonhosted.org/packages/48/bb/3d8757f21e9a53d9035c9eb039a777047139a16bfdbedfc7a58241c3d914/starlette-1.10.0.tar.gz"
+    sha256 "b8399098d4c1e3522734f7235dc79b1fc967f96cf139c81e0fa30479e0685f9b"
   end
 
   resource "tomli-w" do
@@ -206,8 +206,8 @@ class Jobhound < Formula
   end
 
   resource "tzlocal" do
-    url "https://files.pythonhosted.org/packages/81/5b/879b2f932adfa7a053c360d50bc896c977fa6426109185f7c12ebdd0cb9d/tzlocal-5.4.4.tar.gz"
-    sha256 "8dbb8660838688a7b6ba4fed31d18dedf842afb4d47ca050d6d891c2c15f3be4"
+    url "https://files.pythonhosted.org/packages/d8/89/2bd035df331499589fc92e59375c17c6cea6a500453b2c5f6a6ec9572825/tzlocal-5.4.5.tar.gz"
+    sha256 "ba976898bad27945178c9ca25c222c19e322b30c10342b9f40b46714f70d2d5f"
   end
 
   resource "uvicorn" do
@@ -216,8 +216,8 @@ class Jobhound < Formula
   end
 
   resource "wcwidth" do
-    url "https://files.pythonhosted.org/packages/f0/b4/7830542634bb2d3e62aa3b586a72d5b3b6c91c3168929e7000ef3fed041d/wcwidth-0.9.2.tar.gz"
-    sha256 "ae0ef90b90f6af38b54f1fe6d58662ec33b3cb4b8391958a62416d654231727b"
+    url "https://files.pythonhosted.org/packages/ea/01/e5ac23733628a6bbb91913a765fcf55ee8070d8d991bc88fdaaf805052c7/wcwidth-0.9.4.tar.gz"
+    sha256 "fd8d57d3cdfe570e3265c8fab1885c24e34ef40889c0759c0c304a19e9835954"
   end
 
   resource "xdg-base-dirs" do
