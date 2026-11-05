@@ -8,9 +8,9 @@ class Jobhound < Formula
   license "Apache-2.0"
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.9"
-    sha256 cellar: :any, arm64_tahoe:  "c83ffef0490366ceb4cda8595b5b14f11d1bae6e49b05aefe4876f37acae5efd"
-    sha256 cellar: :any, x86_64_linux: "c2d96483fb5730abfe8339defda09e9857aae390389130d7b78af63e0d01802a"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.10"
+    sha256 cellar: :any, arm64_tahoe:  "593284476c2faff288b42b537927cadcf44f12b61ee27a388541ff34964c0540"
+    sha256 cellar: :any, x86_64_linux: "a43f2fdf9f5021804729383272033bce3b8222cb150e5486a35558e0f1c4a3b5"
   end
 
   depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
