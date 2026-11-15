@@ -3,14 +3,14 @@ class Jobhound < Formula
 
   desc "Action-based CLI for tracking a job hunt"
   homepage "https://github.com/yo61/jobhound"
-  url "https://files.pythonhosted.org/packages/03/94/a9d9d8ef136a7636b7c09b552a55ce4fb86fdf868c77e93015e694cb37c2/jobhound-0.18.11.tar.gz"
-  sha256 "4f62e0b646f7408c1a2cf08bd4ecb896f90759a2ffa7f33d62e5c0d2f9610472"
+  url "https://files.pythonhosted.org/packages/aa/f8/4b5cba1d8782f1cf8427cfd5e695a54167fa1b0df79d80a23aea618fca37/jobhound-0.18.12.tar.gz"
+  sha256 "d068babccaa6da4238791c175ec2397a5a94fba571fb03ab947d9c60bb98da81"
   license "Apache-2.0"
 
   bottle do
-    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.11"
-    sha256 cellar: :any, arm64_tahoe:  "13d546cce3d60b962c42be2dff57cde671182100cd6432399365ca0467268457"
-    sha256 cellar: :any, x86_64_linux: "fbb94ef145515151752aca53c23f114c272b9fb6ca31eda098d956fc7054485d"
+    root_url "https://github.com/yo61/homebrew-tap/releases/download/jobhound-0.18.12"
+    sha256 cellar: :any, arm64_tahoe:  "f80600ba891230eefeb189b37c369d2923f01abc9b673fe94cc93223f801e0bb"
+    sha256 cellar: :any, x86_64_linux: "833389be5ef298352ad0fd5630bb8cb6df4210d227f2cc236b924449ca86fa65"
   end
 
   depends_on "rust" => :build # for xdg-base-dirs > uv_build > maturin
